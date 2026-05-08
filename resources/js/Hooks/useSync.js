@@ -34,9 +34,10 @@ export default function useSync() {
             for (const note of pendingNotes) {
                 try {
                     if (note.sync_status === 'pending_update') {
-                        await axios.patch(route('notes.update', note.server_id), {
+                        await axios.post(route('notes.update', note.server_id), {
                             title: note.title,
-                            content: note.content
+                            content: note.content,
+                            _method: 'PATCH'
                         });
                     } else if (note.sync_status === 'pending_create') {
                         const res = await axios.post(route('notes.store'), {
@@ -69,8 +70,8 @@ export default function useSync() {
         if (isOnline) {
             try {
                 const url = id ? route('notes.update', id) : route('notes.store');
-                const method = id ? 'patch' : 'post';
-                const res = await axios[method](url, noteData);
+                const payload = id ? { ...noteData, _method: 'PATCH' } : noteData;
+                const res = await axios.post(url, payload);
                 
                 // Update local storage
                 await db.notes.put({

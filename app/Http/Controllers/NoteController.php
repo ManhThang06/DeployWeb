@@ -67,6 +67,7 @@ class NoteController extends Controller
             'labels' => $user->labels()->whereHas('notes', function($q) use ($user) {
                 $q->where('user_id', $user->id);
             })->get(),
+            'allLabels' => $user->labels()->get(),
             'filters' => $request->only(['search', 'label_ids', 'from']),
             'openedNote' => $openedNote
         ]);
@@ -107,9 +108,10 @@ class NoteController extends Controller
         $note->update($validated);
 
         $note->load(['labels', 'images']);
+        $note->has_password = !empty($note->password);
         
         // Phát sự kiện WebSocket để cập nhật Real-time
-        broadcast(new NoteUpdated($note, Auth::id()))->toOthers();
+        broadcast(new NoteUpdated($note, Auth::id()));
 
         return response()->json($note);
     }
@@ -151,7 +153,7 @@ class NoteController extends Controller
         $note->images()->create(['path' => $path]);
 
         // Broadcast to others
-        broadcast(new NoteUpdated($note->load('images'), Auth::id()))->toOthers();
+        broadcast(new NoteUpdated($note->load('images'), Auth::id()));
 
         return back();
     }
@@ -173,7 +175,7 @@ class NoteController extends Controller
         $image->delete();
 
         // Broadcast to others
-        broadcast(new NoteUpdated($note->load('images'), Auth::id()))->toOthers();
+        broadcast(new NoteUpdated($note->load('images'), Auth::id()));
 
         return back();
     }
@@ -205,7 +207,7 @@ class NoteController extends Controller
         $image->update(['path' => $path]);
 
         // Broadcast to others
-        broadcast(new NoteUpdated($note->load('images'), Auth::id()))->toOthers();
+        broadcast(new NoteUpdated($note->load('images'), Auth::id()));
 
         return back();
     }
@@ -253,7 +255,7 @@ class NoteController extends Controller
         $note->labels()->sync(array_unique($requestedLabelIds));
 
         // Phát sự kiện Real-time
-        broadcast(new NoteUpdated($note->load(['labels', 'images']), Auth::id()))->toOthers();
+        broadcast(new NoteUpdated($note->load(['labels', 'images']), Auth::id()));
 
         return back();
     }
@@ -298,7 +300,7 @@ class NoteController extends Controller
         }
 
         // Phát sự kiện Real-time
-        broadcast(new NoteUpdated($note->load(['labels', 'images']), Auth::id()))->toOthers();
+        broadcast(new NoteUpdated($note->load(['labels', 'images']), Auth::id()));
 
         return back();
     }

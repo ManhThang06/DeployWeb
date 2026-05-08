@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { router } from '@inertiajs/react';
+import { confirmDestructive } from '@/Utils/sweetalert';
 
 export default function NoteShareModal({ show, note, onClose }) {
     const [email, setEmail] = useState('');
@@ -25,9 +26,11 @@ export default function NoteShareModal({ show, note, onClose }) {
     };
 
     const handleRevoke = (userId) => {
-        if (confirm('Thu hồi quyền truy cập của người dùng này?')) {
-            router.patch(route('notes.share.update', [note.id, userId]), { revoke: true });
-        }
+        confirmDestructive('Thu hồi quyền?', 'Người dùng này sẽ không thể truy cập ghi chú này nữa. Bạn có chắc chắn?').then((result) => {
+            if (result.isConfirmed) {
+                router.patch(route('notes.share.update', [note.id, userId]), { revoke: true });
+            }
+        });
     };
 
     return (

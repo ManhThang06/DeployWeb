@@ -80,6 +80,7 @@ class NoteShareController extends Controller
                     $sq->where('users.id', $user->id);
                 });
             })->get(),
+            'allLabels' => $user->labels()->get(),
             'filters' => $request->only(['search', 'label_ids']),
             'auth' => [
                 'user' => $user

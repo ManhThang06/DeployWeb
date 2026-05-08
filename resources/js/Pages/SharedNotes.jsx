@@ -1,12 +1,13 @@
 import BootstrapLayout from '@/Layouts/BootstrapLayout';
 import { Head, Link, router } from '@inertiajs/react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import useSync from '@/Hooks/useSync';
 import useDebounce from '@/Hooks/useDebounce';
 import axios from 'axios';
 import LabelManager from '@/Components/LabelManager';
 import ConfirmationModal from '@/Components/ConfirmationModal';
 import NotePasswordModal from '@/Components/NotePasswordModal';
+import { confirmDestructive } from '@/Utils/sweetalert';
 
 export default function SharedNotes({ notes: initialNotes, labels: propLabels, allLabels: propAllLabels, auth, openedNote }) {
     const [notes, setNotes] = useState(initialNotes);
@@ -28,6 +29,10 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
     const debouncedNoteForm = useDebounce(noteForm, 300);
     const debouncedSearch = useDebounce(searchTerm, 400);
     const { isOnline, saveNote } = useSync();
+    
+    // Quản lý đồng bộ nâng cao để tránh vòng lặp (loop sync)
+    const lastSavedContent = useRef({ title: '', content: '' });
+    const savingCount = useRef(0);
 
     // Sync initial notes and labels from props
     useEffect(() => {
@@ -58,8 +63,12 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
 
     useEffect(() => {
         if (!selectedNote || selectedNote.permission !== 'edit') return;
-        const titleChanged = debouncedNoteForm.title !== (selectedNote.title || '');
-        const contentChanged = debouncedNoteForm.content !== (selectedNote.content || '');
+
+        // Chỉ lưu nếu có thay đổi so với nội dung cuối cùng đã xác nhận (lưu hoặc nhận)
+        const titleChanged = (debouncedNoteForm.title || '') !== lastSavedContent.current.title;
+        const contentChanged = (debouncedNoteForm.content || '') !== lastSavedContent.current.content;
+        
+        // Lưu ý: Ta chỉ phụ thuộc vào debouncedNoteForm để chỉ trigger khi người dùng gõ
         if (titleChanged || contentChanged) {
             handleAutoSave(selectedNote, debouncedNoteForm);
         }
@@ -72,9 +81,31 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
             if (channel) {
                 channel.listen('.note.updated', (e) => {
                     if (e.userId !== auth?.user?.id) {
-                        setNoteForm({ title: e.title, content: e.content });
-                        setNotes(prev => prev.map(n => n.id === e.noteId ? { ...n, title: e.title, content: e.content, images: e.images, labels: (e.labels || []).filter(l => l.user_id === auth.user.id) } : n));
-                        setSelectedNote(prev => prev && prev.id === e.noteId ? { ...prev, title: e.title, content: e.content, images: e.images, labels: (e.labels || []).filter(l => l.user_id === auth.user.id) } : prev);
+                        // Cập nhật 'nội dung đã xác nhận' từ server để useEffect không coi đây là thay đổi cục bộ
+                        lastSavedContent.current = { title: e.title, content: e.content };
+
+                        // Chỉ cập nhật form cho những trường mà người dùng KHÔNG đang focus
+                        const activeElement = document.activeElement;
+                        const isTitleFocused = activeElement?.getAttribute('placeholder') === 'Tiêu đề';
+                        const isContentFocused = activeElement?.getAttribute('placeholder') === 'Nội dung...';
+
+                        setNoteForm(prev => {
+                            const next = { ...prev };
+                            if (!isTitleFocused) next.title = e.title;
+                            if (!isContentFocused) next.content = e.content;
+                            return next;
+                        });
+
+                        // Cập nhật state ngầm
+                        const updatedData = { 
+                            title: e.title, 
+                            content: e.content, 
+                            images: e.images, 
+                            labels: (e.labels || []).filter(l => l.user_id === auth.user.id) 
+                        };
+
+                        setNotes(prev => prev.map(n => n.id === e.noteId ? { ...n, ...updatedData } : n));
+                        setSelectedNote(prev => prev && prev.id === e.noteId ? { ...prev, ...updatedData } : prev);
                         
                         // Cập nhật danh sách nhãn có sẵn nếu có nhãn mới xuất hiện
                         if (e.labels) {
@@ -136,18 +167,13 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
     }, [debouncedSearch]);
 
     const handleAutoSave = async (note, data) => {
+        savingCount.current++;
         setIsSaving(true);
         try {
-            // Đảm bảo ghi chú không bị rỗng hoàn toàn nếu có ảnh
-            const finalData = { ...data };
-            const hasText = data.title?.trim() || data.content?.trim();
-            const hasImages = note.images && note.images.length > 0;
-
-            if (!hasText && hasImages && !data.title?.trim()) {
-                finalData.title = 'Không tiêu đề';
-            }
-
-            const updatedNote = await saveNote(finalData, note.id);
+            // Đánh dấu nội dung này là đã được xử lý lưu
+            lastSavedContent.current = { title: data.title || '', content: data.content || '' };
+            
+            const updatedNote = await saveNote(data, note.id);
             setNotes(prev => prev.map(n => n.id === note.id ? { ...n, ...updatedNote } : n));
             
             // Nếu vừa tự điền 'Không tiêu đề', cập nhật cả form state để người dùng thấy
@@ -159,11 +185,16 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
         } catch (error) {
             console.error('Auto-save failed', error);
         } finally {
-            setIsSaving(false);
+            savingCount.current--;
+            if (savingCount.current <= 0) {
+                setIsSaving(false);
+            }
         }
     };
 
     const openNote = (note) => {
+        // Khởi tạo baseline khi mở ghi chú
+        lastSavedContent.current = { title: note.title || '', content: note.content || '' };
         if (note.has_password && !note.verified) {
             setPendingNote(note);
             setShowPasswordModal(true);
@@ -217,12 +248,14 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
     };
 
     const handleDeleteImage = (imgId) => {
-        if (confirm('Xóa ảnh này khỏi ghi chú?')) {
-            router.delete(route('notes.image.destroy', imgId), {
-                preserveScroll: true,
-                onSuccess: () => router.reload({ only: ['notes'] })
-            });
-        }
+        confirmDestructive('Xóa ảnh?', 'Bạn có chắc chắn muốn xóa ảnh này khỏi ghi chú?').then((result) => {
+            if (result.isConfirmed) {
+                router.delete(route('notes.image.destroy', imgId), {
+                    preserveScroll: true,
+                    onSuccess: () => router.reload({ only: ['notes'] })
+                });
+            }
+        });
     };
 
     const handleLabelSync = (label) => {
@@ -233,7 +266,7 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
 
         router.post(route('notes.labels', selectedNote.id), { label_ids: newLabelIds }, {
             preserveScroll: true,
-            onSuccess: () => router.reload({ only: ['notes'] })
+            onSuccess: () => router.reload({ only: ['notes', 'labels', 'allLabels'] })
         });
     };
 
@@ -244,7 +277,7 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
             preserveScroll: true,
             onSuccess: () => {
                 setQuickLabelName('');
-                router.reload({ only: ['notes', 'labels'] });
+                router.reload({ only: ['notes', 'labels', 'allLabels'] });
             }
         });
     };
@@ -269,6 +302,8 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
         setShowPasswordModal(false);
         if (pendingNote) {
             const verifiedNote = { ...pendingNote, verified: true };
+            // Khởi tạo baseline
+            lastSavedContent.current = { title: verifiedNote.title || '', content: verifiedNote.content || '' };
             openNote(verifiedNote);
             setPendingNote(null);
         }
@@ -501,7 +536,7 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
                 onSuccess={handlePasswordSuccess} 
                 onCancel={() => { setShowPasswordModal(false); setPendingNote(null); }} 
             />
-            <LabelManager show={showLabelManager} labels={availableLabels} onClose={() => setShowLabelManager(false)} />
+            <LabelManager show={showLabelManager} labels={allLabels} onClose={() => setShowLabelManager(false)} />
             <ConfirmationModal show={showDeleteModal} title="Xác nhận xóa" message="Dữ liệu ghi chú và hình ảnh sẽ bị xóa vĩnh viễn. Bạn chắc chắn chứ?" onConfirm={handleDelete} onCancel={() => setShowDeleteModal(false)} />
             <Lightbox image={previewImage} onClose={() => setPreviewImage(null)} />
 

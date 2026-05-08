@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { router } from '@inertiajs/react';
+import { confirmDestructive } from '@/Utils/sweetalert';
 
 export default function LabelManager({ show, labels, onClose }) {
     const [newLabel, setNewLabel] = useState('');
@@ -24,9 +25,11 @@ export default function LabelManager({ show, labels, onClose }) {
     };
 
     const handleDelete = (id) => {
-        if (confirm('Xóa nhãn này sẽ gỡ nó khỏi tất cả ghi chú. Tiếp tục?')) {
-            router.delete(route('labels.destroy', id));
-        }
+        confirmDestructive('Xác nhận xóa nhãn?', 'Xóa nhãn này sẽ gỡ nó khỏi tất cả ghi chú. Bạn có chắc chắn?').then((result) => {
+            if (result.isConfirmed) {
+                router.delete(route('labels.destroy', id));
+            }
+        });
     };
 
     return (

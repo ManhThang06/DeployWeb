@@ -1,6 +1,6 @@
 import BootstrapLayout from '@/Layouts/BootstrapLayout';
 import { Head, Link, router } from '@inertiajs/react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import useDebounce from '@/Hooks/useDebounce';
 import ConfirmationModal from '@/Components/ConfirmationModal';
 import LabelManager from '@/Components/LabelManager';
@@ -9,6 +9,7 @@ import NoteShareModal from '@/Components/NoteShareModal';
 import axios from 'axios';
 import useSync from '@/Hooks/useSync';
 import { db } from '@/db';
+import { confirmDestructive, confirmAction } from '@/Utils/sweetalert';
 
 export default function Dashboard({ notes: initialNotes, labels, allLabels: propAllLabels, filters, auth, openedNote, errors }) {
     const [notes, setNotes] = useState(initialNotes);
@@ -32,6 +33,8 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
     const [noteForm, setNoteForm] = useState({ title: '', content: '' });
     const debouncedNoteForm = useDebounce(noteForm, 300);
     const [isSaving, setIsSaving] = useState(false);
+    const savingCount = useRef(0);
+    const lastSavedContent = useRef({ title: '', content: '' });
     
     // Password settings state
     const [showPasswordSettings, setShowPasswordSettings] = useState(false);
@@ -79,16 +82,37 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
             if (channel) {
                 channel.listen('.note.updated', (e) => {
                     if (e.userId !== auth?.user?.id) {
-                        setNoteForm({ title: e.title, content: e.content });
-                        setNotes(prev => prev.map(n => n.id === e.noteId ? { ...n, title: e.title, content: e.content, images: e.images, labels: (e.labels || []).filter(l => l.user_id === auth.user.id) } : n));
-                        setSelectedNote(prev => prev && prev.id === e.noteId ? { ...prev, title: e.title, content: e.content, images: e.images, labels: (e.labels || []).filter(l => l.user_id === auth.user.id) } : prev);
+                        // Cập nhật baseline từ server
+                        lastSavedContent.current = { title: e.title, content: e.content };
+
+                        // Chỉ cập nhật form cho những trường mà người dùng KHÔNG đang focus
+                        const activeElement = document.activeElement;
+                        const isTitleFocused = activeElement?.getAttribute('placeholder') === 'Tiêu đề';
+                        const isContentFocused = activeElement?.getAttribute('placeholder') === 'Nội dung...';
+
+                        setNoteForm(prev => {
+                            const next = { ...prev };
+                            if (!isTitleFocused) next.title = e.title;
+                            if (!isContentFocused) next.content = e.content;
+                            return next;
+                        });
+
+                        // Cập nhật state ngầm
+                        const updatedData = { 
+                            title: e.title, 
+                            content: e.content, 
+                            images: e.images, 
+                            labels: (e.labels || []).filter(l => l.user_id === auth.user.id) 
+                        };
+
+                        setNotes(prev => prev.map(n => n.id === e.noteId ? { ...n, ...updatedData } : n));
+                        setSelectedNote(prev => (prev && prev.id === e.noteId) ? { ...prev, ...updatedData } : prev);
 
                         // Cập nhật danh sách nhãn nếu có nhãn mới của mình xuất hiện (do người khác gán)
                         if (e.labels) {
                             setAllLabels(prev => {
                                 const combined = [...prev];
                                 e.labels.forEach(newL => {
-                                    // Chỉ thêm nếu nhãn này thuộc về mình và chưa có trong danh sách
                                     if (newL.user_id === auth.user.id && !combined.find(l => l.id === newL.id)) {
                                         combined.push(newL);
                                     }
@@ -131,17 +155,24 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
     }, [debouncedSearch]);
 
     useEffect(() => {
-        if (!selectedNote || selectedNote.has_password) return;
-        const titleChanged = debouncedNoteForm.title !== (selectedNote.title || '');
-        const contentChanged = debouncedNoteForm.content !== (selectedNote.content || '');
+        if (!selectedNote) return;
+        
+        // Chỉ lưu nếu có thay đổi so với nội dung cuối cùng đã xác nhận (lưu hoặc nhận)
+        const titleChanged = (debouncedNoteForm.title || '') !== lastSavedContent.current.title;
+        const contentChanged = (debouncedNoteForm.content || '') !== lastSavedContent.current.content;
+        
         if (titleChanged || contentChanged) {
             handleAutoSave(selectedNote, debouncedNoteForm);
         }
     }, [debouncedNoteForm]);
 
     const handleAutoSave = async (note, data) => {
+        savingCount.current++;
         setIsSaving(true);
         try {
+            // Đánh dấu nội dung này là đã được xử lý lưu
+            lastSavedContent.current = { title: data.title || '', content: data.content || '' };
+            
             // Đảm bảo ghi chú không bị rỗng hoàn toàn nếu có ảnh
             const finalData = { ...data };
             const hasText = data.title?.trim() || data.content?.trim();
@@ -170,8 +201,13 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                     labels: res.data.labels || [],
                 };
             } else {
-                updatedNote = await saveNote(finalData, note.server_id || note.id);
-                updatedNote = { ...updatedNote, images: note.images || [], labels: note.labels || [] };
+                const result = await saveNote(finalData, note.server_id || note.id);
+                // Giữ lại images/labels từ server response nếu có, nếu không thì giữ từ note hiện tại
+                updatedNote = { 
+                    ...result, 
+                    images: result.images || note.images || [], 
+                    labels: result.labels || note.labels || [] 
+                };
             }
             // Thay thế ghi chú tạm bằng ghi chú thật trong state
             setNotes(prev => prev.map(n => (n.id === note.id || n.server_id === (note.server_id || note.id)) 
@@ -188,7 +224,10 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
         } catch (error) {
             console.error('Auto-save failed', error);
         } finally {
-            setIsSaving(false);
+            savingCount.current--;
+            if (savingCount.current <= 0) {
+                setIsSaving(false);
+            }
         }
     };
 
@@ -197,6 +236,9 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
             handleCreateNewNote();
             return;
         }
+
+        // Khởi tạo baseline khi mở ghi chú
+        lastSavedContent.current = { title: note.title || '', content: note.content || '' };
 
         if (note.has_password) {
             setPendingAction({ type: 'open', note });
@@ -246,6 +288,8 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
     const handlePasswordSuccess = (password) => {
         const note = pendingAction.note;
         if (pendingAction.type === 'open') {
+            // Khởi tạo baseline
+            lastSavedContent.current = { title: note.title || '', content: note.content || '' };
             setSelectedNote(note);
             setNoteForm({ title: note.title || '', content: note.content || '' });
             setShowModal(true);
@@ -331,14 +375,16 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
     };
 
     const disablePassword = () => {
-        if (confirm('Tắt mật khẩu bảo vệ cho ghi chú này?')) {
-            router.post(route('notes.set-password', selectedNote.id), { 
-                disable: true, 
-                current_password: passwordForm.current_password 
-            }, {
-                onSuccess: () => setShowPasswordSettings(false)
-            });
-        }
+        confirmAction('Tắt mật khẩu?', 'Bạn có chắc chắn muốn tắt mật khẩu bảo vệ cho ghi chú này?').then((result) => {
+            if (result.isConfirmed) {
+                router.post(route('notes.set-password', selectedNote.id), { 
+                    disable: true, 
+                    current_password: passwordForm.current_password 
+                }, {
+                    onSuccess: () => setShowPasswordSettings(false)
+                });
+            }
+        });
     };
 
     const handleImageUpload = async (e, replaceId = null) => {
@@ -398,12 +444,14 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
     };
 
     const handleDeleteImage = (imgId) => {
-        if (confirm('Xóa ảnh này khỏi ghi chú?')) {
-            router.delete(route('notes.image.destroy', imgId), {
-                preserveScroll: true,
-                onSuccess: () => router.reload({ only: ['notes'] })
-            });
-        }
+        confirmDestructive('Xóa ảnh?', 'Bạn có chắc chắn muốn xóa ảnh này khỏi ghi chú?').then((result) => {
+            if (result.isConfirmed) {
+                router.delete(route('notes.image.destroy', imgId), {
+                    preserveScroll: true,
+                    onSuccess: () => router.reload({ only: ['notes'] })
+                });
+            }
+        });
     };
 
     const handleLabelSync = (label) => {
@@ -418,7 +466,7 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
 
         router.post(route('notes.labels', noteId), { label_ids: newLabelIds }, {
             preserveScroll: true,
-            onSuccess: () => router.reload({ only: ['notes', 'labels'] })
+            onSuccess: () => router.reload({ only: ['notes', 'labels', 'allLabels'] })
         });
     };
 
@@ -434,7 +482,7 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
             preserveScroll: true,
             onSuccess: () => {
                 setQuickLabelName('');
-                router.reload({ only: ['notes', 'labels'] });
+                router.reload({ only: ['notes', 'labels', 'allLabels'] });
             }
         });
     };
