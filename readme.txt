@@ -15,7 +15,7 @@ Dự án: Hệ thống Quản lý Ghi chú Thông minh
   + Password: root
 
 3. CÁCH CHẠY DỰ ÁN (Mỗi khi bắt đầu)
-B1: Mở Terminal tại thư mục ProjectWeb.
+B1: Mở Terminal tại thư mục DeployWeb.
 B2: Chạy lệnh khởi động các container:
     docker-compose up -d
 
@@ -27,6 +27,7 @@ B2: Tạo bảng dữ liệu:
 B3: Cài đặt thư viện JS và Build giao diện (Chạy ở máy thật):
     npm install
     npm run build
+B4: Vào địa chỉ: http://localhost:8000
 
 5. THÔNG TIN KẾT NỐI DATABASE (Dành cho Navicat/Workbench)
 - Host: 127.0.0.1
