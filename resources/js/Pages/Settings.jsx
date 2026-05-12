@@ -2,6 +2,8 @@ import BootstrapLayout from '@/Layouts/BootstrapLayout';
 import { Head, useForm, usePage, router, Link } from '@inertiajs/react';
 import { useState, useRef } from 'react';
 import axios from 'axios';
+import { motion, AnimatePresence } from 'framer-motion';
+import { User, Shield, Palette, Camera, Mail, Lock, CheckCircle2, Loader2, LogOut, Trash2, Sun, Moon, Type, Pipette } from 'lucide-react';
 
 export default function Settings({ status }) {
     const { auth } = usePage().props;
@@ -13,6 +15,7 @@ export default function Settings({ status }) {
     // Account Form
     const accountForm = useForm({
         display_name: auth.user.display_name || '',
+        avatar: null,
     });
 
     // Password Form
@@ -25,15 +28,15 @@ export default function Settings({ status }) {
     // Appearance Form
     const preferences = auth.user.preferences || { 
         font_size: 'medium', 
-        color_scheme: 'blue', 
+        color_scheme: 'green', 
         theme: 'light',
-        text_color: '#000000'
+        text_color: '#212529'
     };
     const appearanceForm = useForm({
         font_size: preferences.font_size || 'medium',
-        color_scheme: preferences.color_scheme || 'blue',
+        color_scheme: preferences.color_scheme || 'green',
         theme: preferences.theme || 'light',
-        text_color: preferences.text_color || (preferences.theme === 'dark' ? '#ffffff' : '#000000'),
+        text_color: preferences.text_color || (preferences.theme === 'dark' ? '#ffffff' : '#212529'),
     });
 
     const updateAccount = async (e) => {
@@ -43,7 +46,6 @@ export default function Settings({ status }) {
         if (accountForm.data.avatar) {
             formData.append('avatar', accountForm.data.avatar);
         }
-        // Thêm _method=POST để route nhận đúng
         formData.append('_method', 'POST');
 
         setIsUploadingAvatar(true);
@@ -51,10 +53,9 @@ export default function Settings({ status }) {
             await axios.post(route('profile.update'), formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
-            // Reload lại trang để cập nhật thông tin mới
             router.reload({ only: ['auth'] });
         } catch (err) {
-            console.error('Cập nhật thất bại', err);
+            console.error('Update failed', err);
         } finally {
             setIsUploadingAvatar(false);
         }
@@ -75,250 +76,283 @@ export default function Settings({ status }) {
         });
     };
 
+    const tabs = [
+        { id: 'account', label: 'Tài khoản', icon: User },
+        { id: 'security', label: 'Bảo mật', icon: Shield },
+        { id: 'appearance', label: 'Giao diện', icon: Palette },
+    ];
+
     return (
         <BootstrapLayout>
             <Head title="Cài đặt" />
             
-            <div className="container py-4">
-                <div className="row">
-                    {/* Sidebar */}
-                    <div className="col-md-3 mb-4">
-                        <div className="card border-0 shadow-sm rounded-4 overflow-hidden">
-                            <div className="list-group list-group-flush border-0">
-                                <button 
-                                    className={`list-group-item list-group-item-action border-0 py-3 d-flex align-items-center gap-3 ${activeTab === 'account' ? 'active bg-primary text-white' : ''}`}
-                                    onClick={() => setActiveTab('account')}
+            <div className="py-6 max-w-5xl mx-auto">
+                <div className="flex flex-col lg:flex-row gap-8">
+                    {/* Glass Sidebar */}
+                    <aside className="lg:w-72">
+                        <div className="glass-card-settings p-4 space-y-2 rounded-[2.5rem] sticky top-28">
+                            <h2 className="px-4 py-2 text-[11px] font-extrabold text-slate-400 uppercase tracking-widest">Cài đặt hệ thống</h2>
+                            {tabs.map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`w-full flex items-center gap-3 px-4 py-4 rounded-2xl font-bold text-sm transition-all border-0 ${activeTab === tab.id ? 'bg-emerald-800 text-white shadow-xl shadow-emerald-800/20' : 'text-slate-500 hover:bg-white hover:text-slate-900 bg-transparent'}`}
                                 >
-                                    <i className="bi bi-person-circle fs-5"></i>
-                                    Tài khoản
+                                    <tab.icon size={18} />
+                                    {tab.label}
                                 </button>
-                                <button 
-                                    className={`list-group-item list-group-item-action border-0 py-3 d-flex align-items-center gap-3 ${activeTab === 'security' ? 'active bg-primary text-white' : ''}`}
-                                    onClick={() => setActiveTab('security')}
-                                >
-                                    <i className="bi bi-shield-lock fs-5"></i>
-                                    Bảo mật
-                                </button>
-                                <button 
-                                    className={`list-group-item list-group-item-action border-0 py-3 d-flex align-items-center gap-3 ${activeTab === 'appearance' ? 'active bg-primary text-white' : ''}`}
-                                    onClick={() => setActiveTab('appearance')}
-                                >
-                                    <i className="bi bi-palette fs-5"></i>
-                                    Tùy chỉnh giao diện
-                                </button>
-                            </div>
+                            ))}
                         </div>
-                    </div>
+                    </aside>
 
-                    {/* Main Content */}
-                    <div className="col-md-9">
-                        {status && (
-                            <div className="alert alert-success border-0 shadow-sm rounded-4 mb-4">
-                                <i className="bi bi-check-circle-fill me-2"></i> {status}
-                            </div>
-                        )}
+                    {/* Content Area */}
+                    <div className="flex-1">
+                        <AnimatePresence mode="wait">
+                            <motion.div
+                                key={activeTab}
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.3 }}
+                                className="glass-card-settings p-8 md:p-12 rounded-[3rem]"
+                            >
+                                {status && (
+                                    <div className="mb-8 p-4 bg-emerald-50 text-emerald-700 rounded-2xl text-sm font-bold border border-emerald-100 flex items-center gap-2">
+                                        <CheckCircle2 size={18} /> {status}
+                                    </div>
+                                )}
 
-                        <div className="card border-0 shadow-sm rounded-4">
-                            <div className="card-body p-4 p-lg-5">
-                                
-                                {/* Account Tab */}
                                 {activeTab === 'account' && (
-                                    <div className="animate-fade-in">
-                                        <h4 className="fw-bold mb-4">Thông tin tài khoản</h4>
-                                        <form onSubmit={updateAccount}>
-                                            <div className="text-center mb-5">
-                                                <div className="position-relative d-inline-block">
-                                                    <img 
-                                                        src={avatarPreview || (auth.user.avatar ? `/storage/${auth.user.avatar}` : `https://ui-avatars.com/api/?name=${auth.user.display_name}&background=random&size=128`)} 
-                                                        alt="Avatar" 
-                                                        className="rounded-circle shadow-sm border border-4 border-white"
-                                                        style={{ width: '120px', height: '120px', objectFit: 'cover' }}
-                                                    />
+                                    <div className="space-y-10">
+                                        <div>
+                                            <h3 className="text-2xl font-extrabold text-slate-900 mb-2">Thông tin cá nhân</h3>
+                                            <p className="text-slate-500 font-medium">Quản lý cách thông tin của bạn hiển thị trên hệ thống.</p>
+                                        </div>
+
+                                        <form onSubmit={updateAccount} className="space-y-8">
+                                            <div className="flex flex-col items-center sm:items-start sm:flex-row gap-8">
+                                                <div className="relative group">
+                                                    <div className="w-32 h-32 rounded-[2.5rem] overflow-hidden border-4 border-white shadow-2xl">
+                                                        <img 
+                                                            src={avatarPreview || (auth.user.avatar ? `/storage/${auth.user.avatar}` : `https://ui-avatars.com/api/?name=${auth.user.display_name}&background=1e3932&color=fff&size=128`)} 
+                                                            alt="Avatar" 
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    </div>
                                                     <button 
                                                         type="button"
-                                                        className="btn btn-sm btn-primary rounded-circle position-absolute bottom-0 end-0 shadow"
+                                                        className="absolute -bottom-2 -right-2 w-10 h-10 bg-emerald-800 text-white rounded-2xl flex items-center justify-center shadow-xl hover:scale-110 transition-transform border-0"
                                                         onClick={() => avatarInput.current.click()}
                                                     >
-                                                        <i className="bi bi-camera-fill"></i>
+                                                        <Camera size={18} />
                                                     </button>
                                                 </div>
-                                                <input 
-                                                    type="file" 
-                                                    ref={avatarInput} 
-                                                    className="d-none" 
-                                                    accept="image/*"
-                                                    onChange={(e) => {
-                                                        const file = e.target.files[0];
-                                                        if (file) {
-                                                            accountForm.setData('avatar', file);
-                                                            setAvatarPreview(URL.createObjectURL(file));
-                                                        }
-                                                    }}
-                                                />
-                                                <h5 className="mt-3 fw-bold">{auth.user.display_name}</h5>
-                                                {accountForm.data.avatar && <div className="text-primary small mt-1">Đã chọn file: {accountForm.data.avatar.name}</div>}
+                                                <div className="flex-1 space-y-4 pt-2">
+                                                    <div>
+                                                        <h4 className="text-lg font-bold text-slate-900">{auth.user.display_name}</h4>
+                                                        <p className="text-sm text-slate-400 font-medium">{auth.user.email}</p>
+                                                    </div>
+                                                    <input 
+                                                        type="file" 
+                                                        ref={avatarInput} 
+                                                        className="hidden" 
+                                                        accept="image/*"
+                                                        onChange={(e) => {
+                                                            const file = e.target.files[0];
+                                                            if (file) {
+                                                                accountForm.setData('avatar', file);
+                                                                setAvatarPreview(URL.createObjectURL(file));
+                                                            }
+                                                        }}
+                                                    />
+                                                    {accountForm.data.avatar && (
+                                                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-xs font-bold">
+                                                            <CheckCircle2 size={12} /> {accountForm.data.avatar.name}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
 
-                                            <div className="mb-4">
-                                                <label className="form-label fw-bold small text-uppercase text-secondary">Tên hiển thị</label>
+                                            <div className="space-y-2">
+                                                <label className="text-[13px] font-bold text-slate-700 ml-1 uppercase tracking-wider opacity-60">Tên hiển thị</label>
                                                 <input 
                                                     type="text" 
-                                                    className={`form-control form-control-lg rounded-3 border-2 ${accountForm.errors.display_name ? 'is-invalid' : ''}`}
+                                                    className="w-full px-6 py-4 bg-white/50 border border-slate-200 rounded-2xl text-slate-900 font-bold placeholder:text-slate-400 focus:ring-4 focus:ring-emerald-700/5 focus:border-emerald-700 transition-all shadow-sm"
                                                     value={accountForm.data.display_name}
                                                     onChange={(e) => accountForm.setData('display_name', e.target.value)}
                                                 />
-                                                {accountForm.errors.display_name && <div className="invalid-feedback">{accountForm.errors.display_name}</div>}
+                                                {accountForm.errors.display_name && <p className="text-xs text-rose-500 font-bold ml-1">{accountForm.errors.display_name}</p>}
                                             </div>
 
-                                            <button type="submit" className="btn btn-primary px-4 py-2 rounded-pill fw-bold" disabled={isUploadingAvatar}>
-                                                {isUploadingAvatar ? <><span className="spinner-border spinner-border-sm me-2"></span>Đang lưu...</> : 'Lưu thay đổi'}
-                                            </button>
+                                            <div className="pt-4">
+                                                <button type="submit" className="px-10 py-4 bg-emerald-800 text-white rounded-2xl font-extrabold shadow-xl shadow-emerald-800/20 hover:bg-emerald-900 transition-all border-0 disabled:opacity-70" disabled={isUploadingAvatar}>
+                                                    {isUploadingAvatar ? <Loader2 size={20} className="animate-spin" /> : 'Lưu thay đổi'}
+                                                </button>
+                                            </div>
                                         </form>
 
-                                        <hr className="my-5 opacity-25" />
-                                        <div className="d-flex align-items-center justify-content-between p-4 bg-danger bg-opacity-10 rounded-4 border border-danger border-opacity-10">
+                                        <div className="pt-10 mt-10 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
                                             <div>
-                                                <h6 className="fw-bold text-danger mb-1">Đăng xuất khỏi thiết bị</h6>
-                                                <p className="text-muted small mb-0">Bạn sẽ cần đăng nhập lại để tiếp tục sử dụng NotePro.</p>
+                                                <h4 className="text-sm font-bold text-slate-900">Quản lý phiên đăng nhập</h4>
+                                                <p className="text-xs text-slate-400 font-medium">Đăng xuất khỏi NotePro trên thiết bị này.</p>
                                             </div>
                                             <Link 
                                                 href={route('logout')} 
                                                 method="post" 
                                                 as="button" 
-                                                className="btn btn-danger px-4 rounded-pill fw-bold shadow-sm"
+                                                className="px-6 py-3 bg-rose-50 text-rose-500 rounded-2xl font-bold text-sm hover:bg-rose-100 transition-all border-0 flex items-center gap-2"
                                             >
-                                                <i className="bi bi-box-arrow-right me-2"></i> Đăng xuất
+                                                <LogOut size={16} /> Đăng xuất ngay
                                             </Link>
                                         </div>
                                     </div>
                                 )}
 
-                                {/* Security Tab */}
                                 {activeTab === 'security' && (
-                                    <div className="animate-fade-in">
-                                        <h4 className="fw-bold mb-4">Cài đặt bảo mật</h4>
-                                        
-                                        <div className="mb-5">
-                                            <label className="form-label fw-bold small text-uppercase text-secondary">Địa chỉ Email</label>
-                                            <div className="input-group custom-email-group">
-                                                <span className="input-group-text border-0 px-3"><i className="bi bi-envelope"></i></span>
-                                                <input type="email" className="form-control border-0 py-2 shadow-none" value={auth.user.email} disabled />
-                                            </div>
-                                            <div className="form-text mt-2 text-warning"><i className="bi bi-info-circle me-1"></i> Email không thể thay đổi sau khi đăng ký.</div>
+                                    <div className="space-y-10">
+                                        <div>
+                                            <h3 className="text-2xl font-extrabold text-slate-900 mb-2">Bảo mật</h3>
+                                            <p className="text-slate-500 font-medium">Bảo vệ tài khoản của bạn với mật khẩu mạnh.</p>
                                         </div>
 
-                                        <hr className="my-4 opacity-50" />
-
-                                        <form onSubmit={updatePassword}>
-                                            <h5 className="fw-bold mb-3">Thay đổi mật khẩu</h5>
-                                            
-                                            <div className="mb-3">
-                                                <label className="form-label small fw-bold text-secondary">Mật khẩu hiện tại</label>
-                                                <input 
-                                                    type="password" 
-                                                    className={`form-control rounded-3 ${passwordForm.errors.current_password ? 'is-invalid' : ''}`}
-                                                    value={passwordForm.data.current_password}
-                                                    onChange={(e) => passwordForm.setData('current_password', e.target.value)}
-                                                />
-                                                {passwordForm.errors.current_password && <div className="invalid-feedback">{passwordForm.errors.current_password}</div>}
-                                            </div>
-
-                                            <div className="row g-3 mb-4">
-                                                <div className="col-md-6">
-                                                    <label className="form-label small fw-bold text-secondary">Mật khẩu mới</label>
-                                                    <input 
-                                                        type="password" 
-                                                        className={`form-control rounded-3 ${passwordForm.errors.password ? 'is-invalid' : ''}`}
-                                                        value={passwordForm.data.password}
-                                                        onChange={(e) => passwordForm.setData('password', e.target.value)}
-                                                    />
-                                                    {passwordForm.errors.password && <div className="invalid-feedback">{passwordForm.errors.password}</div>}
-                                                </div>
-                                                <div className="col-md-6">
-                                                    <label className="form-label small fw-bold text-secondary">Xác nhận mật khẩu mới</label>
-                                                    <input 
-                                                        type="password" 
-                                                        className="form-control rounded-3"
-                                                        value={passwordForm.data.password_confirmation}
-                                                        onChange={(e) => passwordForm.setData('password_confirmation', e.target.value)}
-                                                    />
+                                        <div className="space-y-6">
+                                            <div className="space-y-2">
+                                                <label className="text-[13px] font-bold text-slate-700 ml-1 uppercase tracking-wider opacity-60">Địa chỉ Email</label>
+                                                <div className="relative">
+                                                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400">
+                                                        <Mail size={18} />
+                                                    </div>
+                                                    <input type="email" className="w-full pl-14 pr-6 py-4 bg-slate-100/50 border-0 rounded-2xl text-slate-400 font-bold cursor-not-allowed" value={auth.user.email} disabled />
                                                 </div>
                                             </div>
 
-                                            <button type="submit" className="btn btn-warning px-4 py-2 rounded-pill fw-bold" disabled={passwordForm.processing}>
-                                                Cập nhật mật khẩu
-                                            </button>
-                                        </form>
+                                            <hr className="my-10 border-slate-100" />
+
+                                            <form onSubmit={updatePassword} className="space-y-6">
+                                                <h4 className="text-lg font-bold text-slate-900">Thay đổi mật khẩu</h4>
+                                                
+                                                <div className="space-y-2">
+                                                    <label className="text-[13px] font-bold text-slate-700 ml-1 uppercase tracking-wider opacity-60">Mật khẩu hiện tại</label>
+                                                    <div className="relative group">
+                                                        <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-700 transition-colors">
+                                                            <Lock size={18} />
+                                                        </div>
+                                                        <input 
+                                                            type="password" 
+                                                            className="w-full pl-14 pr-6 py-4 bg-white/50 border border-slate-200 rounded-2xl text-slate-900 font-bold focus:ring-4 focus:ring-emerald-700/5 focus:border-emerald-700 transition-all shadow-sm"
+                                                            value={passwordForm.data.current_password}
+                                                            onChange={(e) => passwordForm.setData('current_password', e.target.value)}
+                                                        />
+                                                    </div>
+                                                    {passwordForm.errors.current_password && <p className="text-xs text-rose-500 font-bold ml-1">{passwordForm.errors.current_password}</p>}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                    <div className="space-y-2">
+                                                        <label className="text-[13px] font-bold text-slate-700 ml-1 uppercase tracking-wider opacity-60">Mật khẩu mới</label>
+                                                        <input 
+                                                            type="password" 
+                                                            className="w-full px-6 py-4 bg-white/50 border border-slate-200 rounded-2xl text-slate-900 font-bold focus:ring-4 focus:ring-emerald-700/5 focus:border-emerald-700 transition-all shadow-sm"
+                                                            value={passwordForm.data.password}
+                                                            onChange={(e) => passwordForm.setData('password', e.target.value)}
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="text-[13px] font-bold text-slate-700 ml-1 uppercase tracking-wider opacity-60">Xác nhận mật khẩu</label>
+                                                        <input 
+                                                            type="password" 
+                                                            className="w-full px-6 py-4 bg-white/50 border border-slate-200 rounded-2xl text-slate-900 font-bold focus:ring-4 focus:ring-emerald-700/5 focus:border-emerald-700 transition-all shadow-sm"
+                                                            value={passwordForm.data.password_confirmation}
+                                                            onChange={(e) => passwordForm.setData('password_confirmation', e.target.value)}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                {passwordForm.errors.password && <p className="text-xs text-rose-500 font-bold ml-1">{passwordForm.errors.password}</p>}
+
+                                                <div className="pt-4">
+                                                    <button type="submit" className="px-10 py-4 bg-emerald-800 text-white rounded-2xl font-extrabold shadow-xl shadow-emerald-800/20 hover:bg-emerald-900 transition-all border-0 disabled:opacity-70" disabled={passwordForm.processing}>
+                                                        {passwordForm.processing ? <Loader2 size={20} className="animate-spin" /> : 'Cập nhật mật khẩu'}
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </div>
                                     </div>
                                 )}
 
-                                {/* Appearance Tab */}
                                 {activeTab === 'appearance' && (
-                                    <div className="animate-fade-in">
-                                        <h4 className="fw-bold mb-4">Tùy chỉnh giao diện</h4>
-                                        <form onSubmit={updateAppearance}>
-                                            {/* Mode Sáng/Tối */}
-                                            <div className="mb-4">
-                                                <label className="form-label fw-bold small text-uppercase text-secondary">Chế độ hiển thị</label>
-                                                <div className="row g-2">
+                                    <div className="space-y-10">
+                                        <div>
+                                            <h3 className="text-2xl font-extrabold text-slate-900 mb-2">Giao diện</h3>
+                                            <p className="text-slate-500 font-medium">Cá nhân hóa không gian ghi chú của bạn.</p>
+                                        </div>
+
+                                        <form onSubmit={updateAppearance} className="space-y-10">
+                                            {/* Mode Selector */}
+                                            <div className="space-y-4">
+                                                <label className="text-[13px] font-bold text-slate-700 ml-1 uppercase tracking-wider opacity-60 flex items-center gap-2">
+                                                    <Sun size={14} /> Chế độ hiển thị
+                                                </label>
+                                                <div className="grid grid-cols-2 gap-4">
                                                     {['light', 'dark'].map((mode) => (
-                                                        <div key={mode} className="col-6">
-                                                            <input
-                                                                type="radio"
-                                                                className="btn-check"
-                                                                name="theme"
-                                                                id={`theme-${mode}`}
-                                                                value={mode}
-                                                                checked={appearanceForm.data.theme === mode}
-                                                                onChange={(e) => appearanceForm.setData('theme', e.target.value)}
-                                                            />
-                                                            <label className={`btn w-100 py-3 rounded-3 border-2 ${appearanceForm.data.theme === mode ? 'btn-outline-primary' : 'btn-outline-secondary'}`} htmlFor={`theme-${mode}`}>
-                                                                <i className={`bi bi-${mode === 'light' ? 'sun' : 'moon-stars'}-fill me-2`}></i>
-                                                                {mode === 'light' ? 'Sáng' : 'Tối'}
-                                                            </label>
-                                                        </div>
+                                                        <label key={mode} className={`relative flex items-center justify-center gap-3 p-5 rounded-[2rem] cursor-pointer transition-all border-2 ${appearanceForm.data.theme === mode ? 'border-emerald-800 bg-emerald-50 text-emerald-800' : 'border-slate-100 bg-white/50 text-slate-400 hover:border-slate-200'}`}>
+                                                            <input type="radio" name="theme" className="sr-only" value={mode} checked={appearanceForm.data.theme === mode} onChange={(e) => appearanceForm.setData('theme', e.target.value)} />
+                                                            {mode === 'light' ? <Sun size={20} /> : <Moon size={20} />}
+                                                            <span className="font-bold">{mode === 'light' ? 'Sáng' : 'Tối'}</span>
+                                                            {appearanceForm.data.theme === mode && <CheckCircle2 size={16} className="absolute top-4 right-4" />}
+                                                        </label>
                                                     ))}
                                                 </div>
                                             </div>
 
-                                            {/* Màu sắc & Kích thước */}
-                                            <div className="row g-4 mb-4">
-                                                <div className="col-md-6">
-                                                    <label className="form-label fw-bold small text-uppercase text-secondary">Màu chữ ghi chú</label>
-                                                    <div className="d-flex align-items-center gap-2 p-2 border rounded-3 bg-body">
-                                                        <input 
-                                                            type="color" 
-                                                            className="form-control form-control-color border-0 p-0" 
-                                                            value={appearanceForm.data.text_color}
-                                                            onChange={(e) => appearanceForm.setData('text_color', e.target.value)}
-                                                        />
-                                                        <span className="small text-muted">{appearanceForm.data.text_color.toUpperCase()}</span>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                                                {/* Text Color */}
+                                                <div className="space-y-4">
+                                                    <label className="text-[13px] font-bold text-slate-700 ml-1 uppercase tracking-wider opacity-60 flex items-center gap-2">
+                                                        <Pipette size={14} /> Màu chữ mặc định
+                                                    </label>
+                                                    <div className="flex items-center gap-4 p-4 bg-white/50 border border-slate-100 rounded-3xl">
+                                                        <div className="w-12 h-12 rounded-xl overflow-hidden shadow-inner border border-slate-200 relative">
+                                                            <input type="color" className="absolute -inset-2 w-[200%] h-[200%] cursor-pointer" value={appearanceForm.data.text_color} onChange={(e) => appearanceForm.setData('text_color', e.target.value)} />
+                                                        </div>
+                                                        <span className="font-bold text-slate-600 uppercase">{appearanceForm.data.text_color}</span>
                                                     </div>
                                                 </div>
-                                                <div className="col-md-6">
-                                                    <label className="form-label fw-bold small text-uppercase text-secondary">Màu ghi chú</label>
-                                                    <select 
-                                                        className="form-select border-2 rounded-3 py-2" 
-                                                        value={appearanceForm.data.color_scheme}
-                                                        onChange={(e) => appearanceForm.setData('color_scheme', e.target.value)}
-                                                    >
-                                                        <option value="blue">Xanh dương</option>
-                                                        <option value="green">Xanh lá</option>
-                                                        <option value="red">Đỏ</option>
-                                                        <option value="orange">Cam</option>
-                                                        <option value="purple">Tím</option>
-                                                    </select>
+
+                                                {/* Color Scheme */}
+                                                <div className="space-y-4">
+                                                    <label className="text-[13px] font-bold text-slate-700 ml-1 uppercase tracking-wider opacity-60 flex items-center gap-2">
+                                                        <Palette size={14} /> Tông màu chủ đạo
+                                                    </label>
+                                                    <div className="relative group">
+                                                        <select 
+                                                            className="w-full px-6 py-4 bg-white/50 border border-slate-100 rounded-3xl text-slate-900 font-bold focus:ring-4 focus:ring-emerald-700/5 transition-all shadow-sm appearance-none" 
+                                                            value={appearanceForm.data.color_scheme}
+                                                            onChange={(e) => appearanceForm.setData('color_scheme', e.target.value)}
+                                                        >
+                                                            <option value="blue">Xanh dương</option>
+                                                            <option value="green">Xanh lá</option>
+                                                            <option value="red">Đỏ</option>
+                                                            <option value="orange">Cam</option>
+                                                            <option value="purple">Tím</option>
+                                                        </select>
+                                                        <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                                            <Palette size={18} />
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
 
-                                            <div className="mb-5">
-                                                <label className="form-label fw-bold small text-uppercase text-secondary">Kích thước phông chữ</label>
-                                                <div className="btn-group w-100 rounded-3 shadow-sm overflow-hidden">
+                                            {/* Font Size */}
+                                            <div className="space-y-4">
+                                                <label className="text-[13px] font-bold text-slate-700 ml-1 uppercase tracking-wider opacity-60 flex items-center gap-2">
+                                                    <Type size={14} /> Kích thước phông chữ
+                                                </label>
+                                                <div className="bg-slate-100/50 p-1.5 rounded-[2rem] flex items-center gap-1">
                                                     {['small', 'medium', 'large'].map((size) => (
                                                         <button
                                                             key={size}
                                                             type="button"
-                                                            className={`btn py-2 ${appearanceForm.data.font_size === size ? 'btn-primary' : 'btn-outline-secondary'}`}
+                                                            className={`flex-1 py-3 rounded-[1.5rem] text-sm font-bold transition-all border-0 ${appearanceForm.data.font_size === size ? 'bg-white text-emerald-800 shadow-sm' : 'bg-transparent text-slate-400 hover:text-slate-600'}`}
                                                             onClick={() => appearanceForm.setData('font_size', size)}
                                                         >
                                                             {size === 'small' ? 'Nhỏ' : size === 'medium' ? 'Vừa' : 'Lớn'}
@@ -327,49 +361,36 @@ export default function Settings({ status }) {
                                                 </div>
                                             </div>
 
-                                            <button type="submit" className="btn btn-primary px-4 py-2 rounded-pill fw-bold" disabled={appearanceForm.processing}>
-                                                Cập nhật giao diện
-                                            </button>
+                                            <div className="pt-4">
+                                                <button type="submit" className="px-10 py-4 bg-emerald-800 text-white rounded-2xl font-extrabold shadow-xl shadow-emerald-800/20 hover:bg-emerald-900 transition-all border-0" disabled={appearanceForm.processing}>
+                                                    {appearanceForm.processing ? <Loader2 size={20} className="animate-spin" /> : 'Áp dụng giao diện'}
+                                                </button>
+                                            </div>
                                         </form>
                                     </div>
                                 )}
-                            </div>
-                        </div>
+                            </motion.div>
+                        </AnimatePresence>
                     </div>
                 </div>
             </div>
 
             <style dangerouslySetInnerHTML={{ __html: `
-                .animate-fade-in {
-                    animation: fadeIn 0.4s ease-out;
+                .glass-card-settings {
+                    background: rgba(255, 255, 255, 0.6);
+                    backdrop-filter: blur(20px) saturate(180%);
+                    -webkit-backdrop-filter: blur(20px) saturate(180%);
+                    border: 1px solid rgba(255, 255, 255, 0.4);
                 }
-                @keyframes fadeIn {
-                    from { opacity: 0; transform: translateY(10px); }
-                    to { opacity: 1; transform: translateY(0); }
+                
+                input:focus, select:focus { outline: none !important; }
+                .no-underline { text-decoration: none !important; }
+                
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
                 }
-                .list-group-item.active {
-                    z-index: 2;
-                    color: #fff;
-                    background-color: var(--bs-primary);
-                    border-color: var(--bs-primary);
-                }
-                [data-bs-theme="dark"] .custom-email-group, 
-                [data-bs-theme="dark"] .custom-email-group .input-group-text, 
-                [data-bs-theme="dark"] .custom-email-group .form-control {
-                    background-color: rgba(255, 255, 255, 0.05) !important;
-                    color: white !important;
-                }
-                [data-bs-theme="dark"] .custom-email-group .form-control::placeholder {
-                    color: rgba(255, 255, 255, 0.5) !important;
-                }
-                .custom-email-group {
-                    border-radius: 10px;
-                    overflow: hidden;
-                    border: 1px solid rgba(0,0,0,0.1);
-                }
-                [data-bs-theme="dark"] .custom-email-group {
-                    border-color: rgba(255,255,255,0.1);
-                }
+                .animate-spin { animation: spin 1s linear infinite; }
             `}} />
         </BootstrapLayout>
     );

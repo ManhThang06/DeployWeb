@@ -10,6 +10,8 @@ import axios from 'axios';
 import useSync from '@/Hooks/useSync';
 import { db } from '@/db';
 import { confirmDestructive, confirmAction } from '@/Utils/sweetalert';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Search, Plus, Users, Grid, List, Tag, Pin, PinOff, Trash2, Shield, Calendar, Share2, MoreVertical, X, CheckCircle2, CloudOff, Loader2 } from 'lucide-react';
 
 export default function Dashboard({ notes: initialNotes, labels, allLabels: propAllLabels, filters, auth, openedNote, errors }) {
     const [notes, setNotes] = useState(initialNotes);
@@ -23,7 +25,7 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
     const [showLabelManager, setShowLabelManager] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
-    const [pendingAction, setPendingAction] = useState(null); // { type: 'open'|'delete', note }
+    const [pendingAction, setPendingAction] = useState(null); 
     
     const [noteToDelete, setNoteToDelete] = useState(null);
     const [previewImage, setPreviewImage] = useState(null);
@@ -36,7 +38,6 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
     const savingCount = useRef(0);
     const lastSavedContent = useRef({ title: '', content: '' });
     
-    // Password settings state
     const [showPasswordSettings, setShowPasswordSettings] = useState(false);
     const [passwordForm, setPasswordForm] = useState({ password: '', password_confirmation: '', current_password: '' });
 
@@ -44,8 +45,6 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
 
     // Sync initial notes from props
     useEffect(() => {
-        // Khi server trả về danh sách notes mới, merge vào UI state
-        // Giữ lại các ghi chú tạm (temp_xxx) không có trên server
         setNotes(prev => {
             const tempNotes = prev.filter(n => String(n.id).startsWith('temp_'));
             const serverNotes = initialNotes.map(n => ({
@@ -55,7 +54,6 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                 images: n.images || [],
                 labels: n.labels || [],
             }));
-            // Ghép: server notes trước, rồi temp notes chưa lưu
             return [...serverNotes, ...tempNotes];
         });
 
@@ -64,68 +62,15 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
             if (updated) setSelectedNote(prev => ({ ...prev, ...updated, images: updated.images || [], labels: updated.labels || [] }));
         }
 
-        // Cập nhật danh sách nhãn khi props thay đổi
         setAllLabels(propAllLabels || labels);
     }, [initialNotes, labels, propAllLabels]);
 
-    // Auto-open note if requested from other pages
+    // Auto-open note if requested
     useEffect(() => {
         if (openedNote && !showModal && !showPasswordModal && (!selectedNote || selectedNote.id !== openedNote.id)) {
             openNote(openedNote);
         }
     }, [openedNote?.id]);
-
-    // REAL-TIME COLLABORATION (Laravel Echo)
-    useEffect(() => {
-        if (showModal && selectedNote) {
-            const channel = window.Echo?.private(`note.${selectedNote.id}`);
-            if (channel) {
-                channel.listen('.note.updated', (e) => {
-                    if (e.userId !== auth?.user?.id) {
-                        // Cập nhật baseline từ server
-                        lastSavedContent.current = { title: e.title, content: e.content };
-
-                        // Chỉ cập nhật form cho những trường mà người dùng KHÔNG đang focus
-                        const activeElement = document.activeElement;
-                        const isTitleFocused = activeElement?.getAttribute('placeholder') === 'Tiêu đề';
-                        const isContentFocused = activeElement?.getAttribute('placeholder') === 'Nội dung...';
-
-                        setNoteForm(prev => {
-                            const next = { ...prev };
-                            if (!isTitleFocused) next.title = e.title;
-                            if (!isContentFocused) next.content = e.content;
-                            return next;
-                        });
-
-                        // Cập nhật state ngầm
-                        const updatedData = { 
-                            title: e.title, 
-                            content: e.content, 
-                            images: e.images, 
-                            labels: (e.labels || []).filter(l => l.user_id === auth.user.id) 
-                        };
-
-                        setNotes(prev => prev.map(n => n.id === e.noteId ? { ...n, ...updatedData } : n));
-                        setSelectedNote(prev => (prev && prev.id === e.noteId) ? { ...prev, ...updatedData } : prev);
-
-                        // Cập nhật danh sách nhãn nếu có nhãn mới của mình xuất hiện (do người khác gán)
-                        if (e.labels) {
-                            setAllLabels(prev => {
-                                const combined = [...prev];
-                                e.labels.forEach(newL => {
-                                    if (newL.user_id === auth.user.id && !combined.find(l => l.id === newL.id)) {
-                                        combined.push(newL);
-                                    }
-                                });
-                                return combined;
-                            });
-                        }
-                    }
-                });
-                return () => channel.stopListening('.note.updated');
-            }
-        }
-    }, [showModal, selectedNote?.id]);
 
     const handleFilter = useCallback((newSearch, newLabelIds) => {
         router.get(route('dashboard'), { 
@@ -156,11 +101,8 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
 
     useEffect(() => {
         if (!selectedNote) return;
-        
-        // Chỉ lưu nếu có thay đổi so với nội dung cuối cùng đã xác nhận (lưu hoặc nhận)
         const titleChanged = (debouncedNoteForm.title || '') !== lastSavedContent.current.title;
         const contentChanged = (debouncedNoteForm.content || '') !== lastSavedContent.current.content;
-        
         if (titleChanged || contentChanged) {
             handleAutoSave(selectedNote, debouncedNoteForm);
         }
@@ -170,10 +112,7 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
         savingCount.current++;
         setIsSaving(true);
         try {
-            // Đánh dấu nội dung này là đã được xử lý lưu
             lastSavedContent.current = { title: data.title || '', content: data.content || '' };
-            
-            // Đảm bảo ghi chú không bị rỗng hoàn toàn nếu có ảnh
             const finalData = { ...data };
             const hasText = data.title?.trim() || data.content?.trim();
             const hasImages = note.images && note.images.length > 0;
@@ -183,51 +122,27 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
             }
 
             let updatedNote;
-            // Nếu là ghi chú tạm (chưa lên server), chỉ lưu khi có nội dung thực hoặc có ảnh
-            const hasActualContent = hasText || hasImages;
-            
             if (!note.server_id && String(note.id).startsWith('temp_')) {
-                if (!hasActualContent) {
+                if (!hasText && !hasImages) {
                     setIsSaving(false);
                     return; 
                 }
-                // Lần đầu có nội dung -> tạo mới trên server
                 const res = await axios.post(route('notes.store'), finalData);
-                updatedNote = { 
-                    ...res.data, 
-                    server_id: res.data.id, 
-                    sync_status: 'synced',
-                    images: note.images || [],
-                    labels: res.data.labels || [],
-                };
+                updatedNote = { ...res.data, server_id: res.data.id, sync_status: 'synced', images: note.images || [], labels: res.data.labels || [] };
             } else {
                 const result = await saveNote(finalData, note.server_id || note.id);
-                // Giữ lại images/labels từ server response nếu có, nếu không thì giữ từ note hiện tại
-                updatedNote = { 
-                    ...result, 
-                    images: result.images || note.images || [], 
-                    labels: result.labels || note.labels || [] 
-                };
+                updatedNote = { ...result, images: result.images || note.images || [], labels: result.labels || note.labels || [] };
             }
-            // Thay thế ghi chú tạm bằng ghi chú thật trong state
-            setNotes(prev => prev.map(n => (n.id === note.id || n.server_id === (note.server_id || note.id)) 
-                ? { ...n, ...updatedNote } 
-                : n
-            ));
-            
-            // Nếu vừa tự điền 'Không tiêu đề', cập nhật cả form state để người dùng thấy
+            setNotes(prev => prev.map(n => (n.id === note.id || n.server_id === (note.server_id || note.id)) ? { ...n, ...updatedNote } : n));
             if (finalData.title === 'Không tiêu đề' && data.title !== 'Không tiêu đề') {
                 setNoteForm(prev => ({ ...prev, title: 'Không tiêu đề' }));
             }
-
             setSelectedNote(prev => ({ ...prev, ...updatedNote }));
         } catch (error) {
             console.error('Auto-save failed', error);
         } finally {
             savingCount.current--;
-            if (savingCount.current <= 0) {
-                setIsSaving(false);
-            }
+            if (savingCount.current <= 0) setIsSaving(false);
         }
     };
 
@@ -236,16 +151,12 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
             handleCreateNewNote();
             return;
         }
-
-        // Khởi tạo baseline khi mở ghi chú
         lastSavedContent.current = { title: note.title || '', content: note.content || '' };
-
         if (note.has_password) {
             setPendingAction({ type: 'open', note });
             setShowPasswordModal(true);
             return;
         }
-
         setSelectedNote(note);
         setNoteForm({ title: note.title || '', content: note.content || '' });
         setShowModal(true);
@@ -255,55 +166,28 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
     const closeNote = () => {
         if (selectedNote) {
             const isEmpty = !noteForm.title?.trim() && !noteForm.content?.trim() && (!selectedNote.images || selectedNote.images.length === 0);
-            
             if (isEmpty) {
                 if (!String(selectedNote.id).startsWith('temp_')) {
-                    // Nếu là ghi chú đã có trên server -> xóa thực sự
                     const id = selectedNote.server_id || selectedNote.id;
                     router.delete(route('notes.destroy', id), {
-                        onSuccess: () => {
-                            setNotes(prev => prev.filter(n => n.id !== selectedNote.id && n.server_id !== id));
-                        }
+                        onSuccess: () => setNotes(prev => prev.filter(n => n.id !== selectedNote.id && n.server_id !== id))
                     });
                 } else {
-                    // Nếu là ghi chú tạm -> chỉ cần xóa khỏi state
                     setNotes(prev => prev.filter(n => n.id !== selectedNote.id));
                 }
             }
         }
-
         setShowModal(false);
         setSelectedNote(null);
-
         const params = new URLSearchParams(window.location.search);
-        const fromSource = filters.from || params.get('from');
-
-        if (fromSource === 'shared') {
+        if (filters.from === 'shared' || params.get('from') === 'shared') {
             router.get(route('notes.shared-with-me'));
         } else if (params.get('open')) {
             router.replace(route('dashboard'));
         }
     };
 
-    const handlePasswordSuccess = (password) => {
-        const note = pendingAction.note;
-        if (pendingAction.type === 'open') {
-            // Khởi tạo baseline
-            lastSavedContent.current = { title: note.title || '', content: note.content || '' };
-            setSelectedNote(note);
-            setNoteForm({ title: note.title || '', content: note.content || '' });
-            setShowModal(true);
-        } else if (pendingAction.type === 'delete') {
-            setNoteToDelete(note);
-            setShowDeleteModal(true);
-        }
-        setShowPasswordModal(false);
-        setPendingAction(null);
-    };
-
     const handleCreateNewNote = () => {
-        // KHÔNG tạo ghi chú trên server ngay - chỉ tạo ghi chú tạm cục bộ
-        // để tránh "ghi chú ma" (ghi chú rỗng xuất hiện 0.3s rồi biến mất)
         const tempNote = {
             id: `temp_${Date.now()}`,
             server_id: null,
@@ -334,30 +218,20 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
     };
 
     const handleDelete = async () => {
-        // Nếu là ghi chú tạm (chưa lên server) -> xóa khỏi state là xong
         if (!noteToDelete.server_id && String(noteToDelete.id).startsWith('temp_')) {
             setNotes(prev => prev.filter(n => n.id !== noteToDelete.id));
             setShowDeleteModal(false);
             setShowModal(false);
             return;
         }
-
         const id = noteToDelete.server_id || noteToDelete.id;
-        
-        if (isOnline) {
-            router.delete(route('notes.destroy', id), {
-                onSuccess: () => {
-                    setNotes(prev => prev.filter(n => n.id !== noteToDelete.id && n.server_id !== id));
-                    setShowDeleteModal(false);
-                    setShowModal(false);
-                }
-            });
-        } else {
-            // Offline delete
-            setNotes(prev => prev.filter(n => n.id !== noteToDelete.id));
-            setShowDeleteModal(false);
-            setShowModal(false);
-        }
+        router.delete(route('notes.destroy', id), {
+            onSuccess: () => {
+                setNotes(prev => prev.filter(n => n.id !== noteToDelete.id && n.server_id !== id));
+                setShowDeleteModal(false);
+                setShowModal(false);
+            }
+        });
     };
 
     const togglePin = (note) => {
@@ -377,10 +251,7 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
     const disablePassword = () => {
         confirmAction('Tắt mật khẩu?', 'Bạn có chắc chắn muốn tắt mật khẩu bảo vệ cho ghi chú này?').then((result) => {
             if (result.isConfirmed) {
-                router.post(route('notes.set-password', selectedNote.id), { 
-                    disable: true, 
-                    current_password: passwordForm.current_password 
-                }, {
+                router.post(route('notes.set-password', selectedNote.id), { disable: true, current_password: passwordForm.current_password }, {
                     onSuccess: () => setShowPasswordSettings(false)
                 });
             }
@@ -390,363 +261,397 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
     const handleImageUpload = async (e, replaceId = null) => {
         const file = e.target.files[0];
         if (!file) return;
-
         const formData = new FormData();
         formData.append('image', file);
 
         if (replaceId) {
-            router.post(route('notes.image.replace', replaceId), formData, {
-                onSuccess: () => router.reload({ only: ['notes'] })
-            });
+            router.post(route('notes.image.replace', replaceId), formData, { onSuccess: () => router.reload({ only: ['notes'] }) });
             return;
         }
 
-        // Nếu ghi chú chưa có server_id (ghi chú tạm) -> lưu lên server trước
         let noteId = selectedNote.server_id || selectedNote.id;
         if (!selectedNote.server_id && String(selectedNote.id).startsWith('temp_')) {
             try {
                 setIsSaving(true);
-                // Lấy tên file làm tiêu đề nếu ghi chú chưa có tiêu đề
-                const autoTitle = (!noteForm.title || noteForm.title.trim() === '') 
-                    ? file.name.replace(/\.[^/.]+$/, '') // bỏ phần extension
-                    : noteForm.title;
-
-                const res = await axios.post(route('notes.store'), {
-                    title: autoTitle,
-                    content: noteForm.content || '',
-                });
-                const savedNote = res.data;
-                noteId = savedNote.id;
-
-                // Cập nhật state với note đã được lưu
-                const updatedNote = { 
-                    ...savedNote, 
-                    server_id: savedNote.id, 
-                    sync_status: 'synced',
-                    images: [],
-                    labels: savedNote.labels || [],
-                };
+                const autoTitle = (!noteForm.title || noteForm.title.trim() === '') ? file.name.replace(/\.[^/.]+$/, '') : noteForm.title;
+                const res = await axios.post(route('notes.store'), { title: autoTitle, content: noteForm.content || '' });
+                noteId = res.data.id;
+                const updatedNote = { ...res.data, server_id: res.data.id, sync_status: 'synced', images: [], labels: res.data.labels || [] };
                 setSelectedNote(updatedNote);
                 setNoteForm(prev => ({ ...prev, title: autoTitle }));
                 setNotes(prev => prev.map(n => n.id === selectedNote.id ? updatedNote : n));
-            } catch (err) {
-                console.error('Failed to save note before image upload', err);
-                setIsSaving(false);
-                return;
-            } finally {
-                setIsSaving(false);
-            }
+            } catch (err) { console.error(err); setIsSaving(false); return; } finally { setIsSaving(false); }
         }
 
-        router.post(route('notes.image', noteId), formData, {
-            onSuccess: () => router.reload({ only: ['notes'] })
-        });
+        router.post(route('notes.image', noteId), formData, { onSuccess: () => router.reload({ only: ['notes'] }) });
     };
 
     const handleDeleteImage = (imgId) => {
         confirmDestructive('Xóa ảnh?', 'Bạn có chắc chắn muốn xóa ảnh này khỏi ghi chú?').then((result) => {
             if (result.isConfirmed) {
-                router.delete(route('notes.image.destroy', imgId), {
-                    preserveScroll: true,
-                    onSuccess: () => router.reload({ only: ['notes'] })
-                });
+                router.delete(route('notes.image.destroy', imgId), { preserveScroll: true, onSuccess: () => router.reload({ only: ['notes'] }) });
             }
         });
     };
 
     const handleLabelSync = (label) => {
-        // Đảm bảo ghi chú đã được lưu trên server
         const noteId = selectedNote.server_id || selectedNote.id;
         if (String(noteId).startsWith('temp_')) return;
-
         const currentLabels = selectedNote.labels.map(l => l.id);
-        const newLabelIds = currentLabels.includes(label.id) 
-            ? currentLabels.filter(id => id !== label.id) 
-            : [...currentLabels, label.id];
-
-        router.post(route('notes.labels', noteId), { label_ids: newLabelIds }, {
-            preserveScroll: true,
-            onSuccess: () => router.reload({ only: ['notes', 'labels', 'allLabels'] })
-        });
+        const newLabelIds = currentLabels.includes(label.id) ? currentLabels.filter(id => id !== label.id) : [...currentLabels, label.id];
+        router.post(route('notes.labels', noteId), { label_ids: newLabelIds }, { preserveScroll: true, onSuccess: () => router.reload({ only: ['notes', 'labels', 'allLabels'] }) });
     };
 
     const handleQuickAddLabel = (e) => {
         e.preventDefault();
         if (!quickLabelName.trim()) return;
-
-        // Đảm bảo ghi chú đã được lưu trên server
         const noteId = selectedNote.server_id || selectedNote.id;
         if (String(noteId).startsWith('temp_')) return;
-
-        router.post(route('notes.labels.add', noteId), { name: quickLabelName }, {
-            preserveScroll: true,
-            onSuccess: () => {
-                setQuickLabelName('');
-                router.reload({ only: ['notes', 'labels', 'allLabels'] });
-            }
-        });
+        router.post(route('notes.labels.add', noteId), { name: quickLabelName }, { preserveScroll: true, onSuccess: () => { setQuickLabelName(''); router.reload({ only: ['notes', 'labels', 'allLabels'] }); } });
     };
 
     return (
         <BootstrapLayout>
             <Head title="Quản lý ghi chú" />
 
-            {!isOnline && (
-                <div className="position-fixed top-0 start-50 translate-middle-x mt-2 z-3">
-                    <div className="badge rounded-pill bg-danger shadow-lg px-4 py-2 border border-2 border-white animate-pulse">
-                        <i className="bi bi-cloud-slash me-2"></i> Đang ngoại tuyến - Chế độ lưu cục bộ
-                    </div>
-                </div>
-            )}
+            <AnimatePresence>
+                {!isOnline && (
+                    <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -20, opacity: 0 }} className="fixed top-24 left-1/2 -translate-x-1/2 z-[60]">
+                        <div className="bg-rose-500 text-white px-6 py-2 rounded-2xl shadow-xl flex items-center gap-2 font-bold text-sm">
+                            <CloudOff size={16} /> Đang ngoại tuyến
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {isSyncing && (
-                <div className="position-fixed bottom-0 end-0 m-4 z-3">
-                    <div className="badge rounded-pill bg-primary shadow-lg px-3 py-2 border border-2 border-white">
-                        <div className="spinner-border spinner-border-sm me-2" role="status"></div> Đang đồng bộ...
+                <div className="fixed bottom-8 right-8 z-50">
+                    <div className="bg-emerald-800 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 font-bold text-sm border border-emerald-700/50">
+                        <Loader2 size={18} className="animate-spin" /> Đồng bộ hóa...
                     </div>
                 </div>
             )}
-            
-            <div className="container py-2">
-                <div className="row mb-5 align-items-center g-3">
-                    <div className="col-md-7">
-                        <div className="input-group shadow-sm rounded-pill bg-body border overflow-hidden px-2">
-                            <span className="input-group-text bg-transparent border-0 pe-1">
-                                <i className="bi bi-search text-secondary opacity-50"></i>
-                            </span>
-                            <input type="text" className="form-control border-0 py-2 shadow-none bg-transparent" placeholder="Tìm kiếm ghi chú..." value={search} onChange={(e) => setSearch(e.target.value)} />
+
+            <div className="py-6 space-y-10">
+                {/* Search & Actions Bar */}
+                <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="w-full md:max-w-xl relative group">
+                        <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-700 transition-colors">
+                            <Search size={20} />
                         </div>
+                        <input 
+                            type="text" 
+                            className="w-full pl-14 pr-6 py-4 bg-white/70 backdrop-blur-md border border-white/40 rounded-3xl text-slate-900 font-medium placeholder:text-slate-400 focus:ring-4 focus:ring-emerald-700/5 focus:border-emerald-700/30 transition-all shadow-sm" 
+                            placeholder="Tìm kiếm nhanh ghi chú..." 
+                            value={search} 
+                            onChange={(e) => setSearch(e.target.value)} 
+                        />
                     </div>
-                    <div className="col-md-5 d-flex justify-content-md-end gap-2">
-                        <Link href={route('notes.shared-with-me')} className="btn btn-outline-primary rounded-pill px-4 fw-bold">
-                            <i className="bi bi-people me-1"></i> Chia sẻ với tôi
+                    
+                    <div className="flex items-center gap-3 w-full md:w-auto">
+                        <Link href={route('notes.shared-with-me')} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-4 bg-white/70 backdrop-blur-md border border-white/40 rounded-3xl text-slate-600 font-bold hover:text-emerald-800 hover:bg-white transition-all shadow-sm no-underline">
+                            <Users size={18} /> Chia sẻ
                         </Link>
-                        <button className="btn btn-primary rounded-pill px-4 shadow fw-bold transition-all" onClick={() => openNote()}>
-                            <i className="bi bi-plus-lg me-1"></i> Ghi chú mới
+                        <motion.button 
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-8 py-4 bg-emerald-800 text-white rounded-3xl font-bold shadow-xl shadow-emerald-800/20 hover:bg-emerald-900 transition-all border-0" 
+                            onClick={() => openNote()}
+                        >
+                            <Plus size={20} strokeWidth={3} /> Ghi chú mới
+                        </motion.button>
+                    </div>
+                </div>
+
+                {/* Filters & View Controls */}
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <button 
+                            className={`px-6 py-2.5 rounded-2xl text-sm font-bold transition-all border-0 ${selectedLabelIds.length === 0 ? 'bg-emerald-800 text-white shadow-lg shadow-emerald-800/10' : 'bg-white/60 text-slate-500 hover:bg-white'}`} 
+                            onClick={() => handleFilter(search, [])}
+                        >
+                            Tất cả
+                        </button>
+                        {labels.map(label => (
+                            <button 
+                                key={label.id} 
+                                className={`px-5 py-2.5 rounded-2xl text-sm font-bold transition-all border-0 flex items-center gap-2 ${selectedLabelIds.includes(String(label.id)) ? 'bg-emerald-800 text-white shadow-lg shadow-emerald-800/10' : 'bg-white/60 text-slate-500 hover:bg-white'}`} 
+                                onClick={() => toggleLabelFilter(label.id)}
+                            >
+                                <Tag size={14} /> {label.name}
+                            </button>
+                        ))}
+                        <button 
+                            className="w-10 h-10 rounded-2xl bg-white/60 text-slate-400 hover:text-emerald-800 hover:bg-white flex items-center justify-center transition-all border-0 ml-2" 
+                            onClick={() => setShowLabelManager(true)}
+                        >
+                            <Plus size={18} />
+                        </button>
+                    </div>
+
+                    <div className="bg-slate-200/50 p-1 rounded-2xl flex items-center shadow-inner">
+                        <button 
+                            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all border-0 ${viewMode === 'grid' ? 'bg-white text-emerald-800 shadow-sm' : 'text-slate-400 bg-transparent'}`} 
+                            onClick={() => setViewMode('grid')}
+                        >
+                            <Grid size={18} />
+                        </button>
+                        <button 
+                            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all border-0 ${viewMode === 'list' ? 'bg-white text-emerald-800 shadow-sm' : 'text-slate-400 bg-transparent'}`} 
+                            onClick={() => setViewMode('list')}
+                        >
+                            <List size={18} />
                         </button>
                     </div>
                 </div>
 
-                <div className="d-flex flex-wrap gap-2 mb-4 align-items-center">
-                    <button className={`btn btn-sm rounded-pill px-4 py-2 fw-medium text-nowrap ${selectedLabelIds.length === 0 ? 'btn-primary shadow-sm' : 'btn-body border'}`} onClick={() => handleFilter(search, [])}>Tất cả</button>
-                    {labels.map(label => (
-                        <button key={label.id} className={`btn btn-sm rounded-pill px-4 py-2 fw-medium text-nowrap ${selectedLabelIds.includes(String(label.id)) ? 'btn-primary shadow-sm' : 'btn-body border'}`} onClick={() => toggleLabelFilter(label.id)}>#{label.name}</button>
-                    ))}
-                    {selectedLabelIds.length > 0 && (
-                        <button className="btn btn-sm btn-link text-danger text-decoration-none ms-2 text-nowrap" onClick={() => handleFilter(search, [])}>
-                            <i className="bi bi-x-circle me-1"></i>Xóa toàn bộ
-                        </button>
-                    )}
-                    <button className="btn btn-sm btn-outline-secondary rounded-pill border-dashed ms-2 text-nowrap" onClick={() => setShowLabelManager(true)}><i className="bi bi-tags-fill me-1"></i>Quản lý nhãn</button>
-                    <div className="ms-md-auto btn-group shadow-sm bg-body border rounded-pill p-1">
-                        <button className={`btn btn-sm border-0 rounded-circle ${viewMode === 'grid' ? 'btn-primary shadow-sm' : 'btn-link text-secondary'}`} onClick={() => setViewMode('grid')}><i className="bi bi-grid-fill"></i></button>
-                        <button className={`btn btn-sm border-0 rounded-circle ${viewMode === 'list' ? 'btn-primary shadow-sm' : 'btn-link text-secondary'}`} onClick={() => setViewMode('list')}><i className="bi bi-list-ul"></i></button>
-                    </div>
-                </div>
-
-                <div className={viewMode === 'grid' ? 'row g-4' : 'd-flex flex-column gap-3'}>
-                    {notes.map(note => (
-                        <div key={note.id} className={viewMode === 'grid' ? 'col-sm-6 col-md-4 col-xl-3' : 'w-100'}>
-                            <div className={`card h-100 border shadow-sm rounded-4 note-card transition-all ${note.is_pinned ? 'border-primary border-2 bg-primary-subtle bg-opacity-10' : ''}`} onClick={() => openNote(note)}>
-                                <div className="card-body p-4">
-                                    <div className="d-flex justify-content-between align-items-start mb-3">
-                                        <h6 className="card-title fw-bold mb-0 text-truncate fs-5" style={{ color: 'inherit' }}>{note.title || 'Ghi chú mới'}</h6>
-                                        <div className="d-flex gap-2 align-items-center">
-                                            {note.has_password && <i className="bi bi-lock-fill text-warning"></i>}
-                                            {note.shared_with && note.shared_with.length > 0 && <i className="bi bi-people-fill text-info"></i>}
-                                            <button className={`btn btn-sm p-0 border-0 ${note.is_pinned ? 'text-primary' : 'text-secondary opacity-25'}`} onClick={(e) => { e.stopPropagation(); togglePin(note); }}>
-                                                <i className={`bi ${note.is_pinned ? 'bi-pin-angle-fill' : 'bi-pin-angle'} fs-5`}></i>
+                {/* Notes Display Area */}
+                <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6' : 'flex flex-column gap-4'}>
+                    <AnimatePresence mode="popLayout">
+                        {notes.map(note => (
+                            <motion.div 
+                                key={note.id}
+                                layout
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.9 }}
+                                transition={{ duration: 0.3 }}
+                                onClick={() => openNote(note)}
+                                className={`group relative glass-card-note rounded-[2rem] p-6 cursor-pointer border border-white/40 transition-all hover:-translate-y-2 hover:shadow-2xl hover:shadow-emerald-900/10 ${note.is_pinned ? 'ring-2 ring-emerald-800/20' : ''}`}
+                            >
+                                <div className="flex flex-column h-full">
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div className="flex-1">
+                                            <h3 className="text-lg font-bold text-slate-900 line-clamp-1 group-hover:text-emerald-800 transition-colors">
+                                                {note.title || 'Ghi chú mới'}
+                                            </h3>
+                                            <div className="flex items-center gap-2 mt-1 opacity-50 font-bold text-[10px] uppercase tracking-wider text-slate-500">
+                                                <Calendar size={12} /> {new Date(note.updated_at).toLocaleDateString('vi-VN')}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            {note.has_password && <Shield size={16} className="text-emerald-600" />}
+                                            {note.shared_with?.length > 0 && <Users size={16} className="text-blue-500" />}
+                                            <button 
+                                                className={`p-1.5 rounded-xl transition-all border-0 bg-transparent ${note.is_pinned ? 'text-emerald-800 bg-emerald-50' : 'text-slate-300 hover:text-emerald-800'}`} 
+                                                onClick={(e) => { e.stopPropagation(); togglePin(note); }}
+                                            >
+                                                {note.is_pinned ? <Pin size={18} fill="currentColor" /> : <Pin size={18} />}
                                             </button>
                                         </div>
                                     </div>
-                                    <p className="card-text opacity-75 mb-3" style={{ color: 'inherit', display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: '1.5em' }}>
-                                        {note.has_password ? '••••••••••••••••' : (note.content || 'Nhấn để thêm nội dung...')}
-                                    </p>
-                                    <div className="d-flex flex-wrap gap-1 mt-auto">
-                                        {note.labels.map(l => (
-                                            <span key={l.id} className="badge rounded-pill bg-body-secondary text-primary border border-primary-subtle fw-normal">#{l.name}</span>
-                                        ))}
+
+                                    <div className="flex-grow">
+                                        <p className="text-slate-500 font-medium text-sm line-clamp-4 leading-relaxed">
+                                            {note.has_password ? 'Nội dung đã được khóa bảo mật...' : (note.content || 'Chưa có nội dung...')}
+                                        </p>
+                                    </div>
+
+                                    <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
+                                        <div className="flex flex-wrap gap-1">
+                                            {note.labels.slice(0, 2).map(l => (
+                                                <span key={l.id} className="px-2.5 py-1 bg-slate-100 text-slate-500 rounded-lg text-[10px] font-bold uppercase tracking-tight">#{l.name}</span>
+                                            ))}
+                                            {note.labels.length > 2 && <span className="text-[10px] font-bold text-slate-400 ml-1">+{note.labels.length - 2}</span>}
+                                        </div>
+                                        <button 
+                                            className="p-2 rounded-xl text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-all border-0 bg-transparent opacity-0 group-hover:opacity-100" 
+                                            onClick={(e) => { e.stopPropagation(); confirmDelete(note); }}
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
                                     </div>
                                 </div>
-                                <div className="card-footer bg-transparent border-top-0 d-flex justify-content-between align-items-center p-4 pt-0">
-                                    <span className="text-secondary opacity-50 small"><i className="bi bi-calendar3 me-1"></i>{new Date(note.updated_at).toLocaleDateString('vi-VN')}</span>
-                                    <button className="btn btn-sm btn-link text-danger p-0 border-0 shadow-none opacity-25 hover-opacity-100" onClick={(e) => { e.stopPropagation(); confirmDelete(note); }}>
-                                        <i className="bi bi-trash3 fs-6"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
+                            </motion.div>
+                        ))}
+                    </AnimatePresence>
                 </div>
             </div>
 
-            {showModal && selectedNote && (
-                <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(10px)', zIndex: 1060 }}>
-                    <div className="modal-dialog modal-xl modal-dialog-centered">
-                        <div className="modal-content border-0 shadow-2xl rounded-5 overflow-hidden" style={{ backgroundColor: 'var(--note-bg-color)', backdropFilter: 'blur(20px)' }}>
-                            <div className="modal-header border-0 px-4 pt-4 pb-0 d-flex justify-content-between align-items-center">
-                                <div className="d-flex align-items-center gap-3">
-                                    <button className={`btn rounded-pill px-4 btn-sm fw-bold transition-all ${selectedNote.is_pinned ? 'btn-primary shadow' : 'btn-outline-secondary'}`} onClick={() => togglePin(selectedNote)}>
-                                        <i className={`bi ${selectedNote.is_pinned ? 'bi-pin-angle-fill' : 'bi-pin-angle'} me-2`}></i> {selectedNote.is_pinned ? 'Đã ghim' : 'Ghim'}
+            {/* Note Editor Modal */}
+            <AnimatePresence>
+                {showModal && selectedNote && (
+                    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 md:p-10">
+                        <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-slate-900/20 backdrop-blur-md" 
+                            onClick={closeNote} 
+                        />
+                        <motion.div 
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            className="relative w-full max-w-6xl max-h-full bg-white/80 backdrop-blur-3xl rounded-[3rem] shadow-3xl overflow-hidden border border-white/50 flex flex-col"
+                        >
+                            <div className="px-8 py-6 flex items-center justify-between border-b border-slate-100">
+                                <div className="flex items-center gap-3">
+                                    <button 
+                                        className={`px-5 py-2 rounded-2xl text-sm font-bold transition-all border-0 flex items-center gap-2 ${selectedNote.is_pinned ? 'bg-emerald-800 text-white shadow-lg' : 'bg-slate-100 text-slate-500'}`} 
+                                        onClick={() => togglePin(selectedNote)}
+                                    >
+                                        <Pin size={16} fill={selectedNote.is_pinned ? "currentColor" : "none"} /> {selectedNote.is_pinned ? 'Đã ghim' : 'Ghim'}
                                     </button>
-                                    <button className="btn btn-outline-info rounded-pill px-4 btn-sm fw-bold" onClick={() => setShowShareModal(true)}>
-                                        <i className="bi bi-share me-2"></i> Chia sẻ
+                                    <button className="px-5 py-2 rounded-2xl bg-blue-50 text-blue-700 text-sm font-bold border-0 flex items-center gap-2 hover:bg-blue-100 transition-all" onClick={() => setShowShareModal(true)}>
+                                        <Share2 size={16} /> Chia sẻ
                                     </button>
-                                    <div className="d-flex align-items-center gap-2 small">
-                                        {isSaving ? <span className="text-secondary"><div className="spinner-border spinner-border-sm me-1"></div> Đang lưu...</span> : <span className="text-success fw-medium"><i className="bi bi-check2-circle me-1"></i> Đã đồng bộ</span>}
+                                    <div className="hidden sm:flex items-center gap-2 ml-4">
+                                        {isSaving ? (
+                                            <div className="flex items-center gap-2 text-slate-400 font-bold text-xs uppercase tracking-widest">
+                                                <Loader2 size={12} className="animate-spin" /> Đang lưu
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs uppercase tracking-widest">
+                                                <CheckCircle2 size={12} /> Đã đồng bộ
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
-                                <button type="button" className="btn-close shadow-none" onClick={closeNote}></button>
+                                <button className="w-10 h-10 rounded-2xl bg-slate-100 text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition-all border-0" onClick={closeNote}>
+                                    <X size={20} />
+                                </button>
                             </div>
-                            
-                            <div className="modal-body p-4 p-lg-5 pt-3">
-                                <div className="row g-4">
-                                    <div className="col-lg-8 border-end-lg pe-lg-5">
+
+                            <div className="flex-grow overflow-y-auto custom-scrollbar p-8 md:p-12">
+                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+                                    <div className="lg:col-span-8 space-y-8">
                                         <input 
                                             type="text" 
-                                            className="form-control form-control-lg border-0 bg-transparent fw-bold mb-4 p-0 shadow-none fs-1 placeholder-white" 
-                                            style={{ color: 'var(--note-text-color) !important' }}
-                                            placeholder="Tiêu đề" 
+                                            className="w-full text-4xl md:text-5xl font-extrabold text-slate-900 border-0 bg-transparent p-0 focus:ring-0 placeholder:text-slate-200 tracking-tight" 
+                                            placeholder="Tiêu đề..." 
                                             value={noteForm.title} 
                                             onChange={(e) => setNoteForm({ ...noteForm, title: e.target.value })} 
                                         />
                                         <textarea 
-                                            className="form-control border-0 bg-transparent p-0 shadow-none fs-4 opacity-75 placeholder-white" 
-                                            style={{ color: 'var(--note-text-color) !important', resize: 'none' }}
-                                            rows="12" 
-                                            placeholder="Nội dung..." 
+                                            className="w-full text-lg md:text-xl font-medium text-slate-600 border-0 bg-transparent p-0 focus:ring-0 placeholder:text-slate-200 resize-none leading-relaxed min-h-[400px]" 
+                                            placeholder="Bắt đầu ghi chú tại đây..." 
                                             value={noteForm.content} 
                                             onChange={(e) => setNoteForm({ ...noteForm, content: e.target.value })}
-                                        ></textarea>
+                                        />
                                     </div>
 
-                                    <div className="col-lg-4">
-                                        <div className="d-flex flex-column gap-4 h-100">
-                                            {selectedNote.user_id === auth.user.id && (
-                                                <section className="bg-light-subtle p-3 rounded-4 border">
-                                                    <h6 className="fw-bold mb-3 d-flex align-items-center" onClick={() => setShowPasswordSettings(!showPasswordSettings)} style={{ cursor: 'pointer', color: 'var(--note-primary-color)' }}>
-                                                        <i className={`bi ${selectedNote.has_password ? 'bi-shield-lock-fill' : 'bi-shield-lock'} me-2`}></i> Bảo mật ghi chú
-                                                        <i className={`bi bi-chevron-${showPasswordSettings ? 'up' : 'down'} ms-auto small`}></i>
-                                                    </h6>
-                                                    
-                                                    {showPasswordSettings && (
-                                                        <form onSubmit={handlePasswordChange}>
-                                                            {selectedNote.has_password && (
-                                                                <div className="mb-2">
-                                                                    <input type="password" placeholder="Mật khẩu hiện tại" className={`form-control form-control-sm rounded-pill ${errors.current_password ? 'is-invalid' : ''}`} value={passwordForm.current_password} onChange={(e) => setPasswordForm({...passwordForm, current_password: e.target.value})} required />
-                                                                    {errors.current_password && <div className="invalid-feedback ms-2">{errors.current_password}</div>}
-                                                                </div>
-                                                            )}
-                                                            <div className="mb-2">
-                                                                <input type="password" placeholder="Mật khẩu mới" className={`form-control form-control-sm rounded-pill ${errors.password ? 'is-invalid' : ''}`} value={passwordForm.password} onChange={(e) => setPasswordForm({...passwordForm, password: e.target.value})} required />
-                                                                {errors.password && <div className="invalid-feedback ms-2">{errors.password}</div>}
-                                                            </div>
-                                                            <div className="mb-3">
-                                                                <input type="password" placeholder="Xác nhận mật khẩu" className="form-control form-control-sm rounded-pill" value={passwordForm.password_confirmation} onChange={(e) => setPasswordForm({...passwordForm, password_confirmation: e.target.value})} required />
-                                                            </div>
-                                                            <div className="d-flex gap-2">
-                                                                <button type="submit" className="btn btn-sm btn-primary rounded-pill px-3" style={{ backgroundColor: 'var(--note-primary-color)', borderColor: 'var(--note-primary-color)' }}>Lưu</button>
-                                                                {selectedNote.has_password && <button type="button" className="btn btn-sm btn-outline-danger rounded-pill px-3" onClick={disablePassword}>Tắt khóa</button>}
-                                                            </div>
-                                                        </form>
-                                                    )}
-                                                    {!showPasswordSettings && selectedNote.has_password && <span className="badge bg-warning-subtle text-warning border border-warning-opacity-25 rounded-pill px-3">Đã đặt mật khẩu</span>}
-                                                </section>
-                                            )}
-
-                                            <section>
-                                                <h6 className="fw-bold mb-3 d-flex align-items-center" style={{ color: 'var(--note-primary-color)' }}><i className="bi bi-tags me-2"></i>Nhãn dán</h6>
-                                                <form onSubmit={handleQuickAddLabel} className="mb-3">
-                                                    <div className="input-group input-group-sm shadow-sm rounded-pill overflow-hidden border">
-                                                        <input type="text" className="form-control border-0 bg-transparent shadow-none placeholder-white" placeholder="Tạo nhãn mới & gán..." value={quickLabelName} onChange={(e) => setQuickLabelName(e.target.value)} />
-                                                        <button className="btn border-0 text-white" type="submit" style={{ backgroundColor: 'var(--note-primary-color)' }}><i className="bi bi-plus"></i></button>
-                                                    </div>
-                                                </form>
-                                                <div className="d-flex flex-wrap gap-2 mb-3">
-                                                    {allLabels.map(label => {
-                                                        const isSelected = selectedNote.labels.some(l => l.id === label.id);
-                                                        return (
-                                                            <button 
-                                                                key={label.id} 
-                                                                className={`btn btn-sm rounded-pill px-3 transition-all border ${isSelected ? 'text-white shadow-sm' : 'btn-light'}`} 
-                                                                style={isSelected ? { backgroundColor: 'var(--note-primary-color)', borderColor: 'var(--note-primary-color)' } : {}}
-                                                                onClick={() => handleLabelSync(label)}
-                                                            >
-                                                                #{label.name}
-                                                            </button>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </section>
-
-                                            <section className="flex-grow-1">
-                                                <h6 className="fw-bold mb-3 d-flex align-items-center" style={{ color: 'var(--note-primary-color)' }}><i className="bi bi-images me-2"></i>Hình ảnh</h6>
-                                                <div className="row g-2 mb-3">
-                                                    {selectedNote.images.map(img => (
-                                                        <div key={img.id} className="col-4 position-relative image-manage-group">
-                                                            <div className="ratio ratio-1x1 rounded-3 overflow-hidden shadow-sm border bg-body-secondary cursor-zoom-in" onClick={() => setPreviewImage(`/storage/${img.path}`)}><img src={`/storage/${img.path}`} className="object-fit-cover" alt="note" /></div>
-                                                            <div className="position-absolute top-0 end-0 m-1 d-flex flex-column gap-1 opacity-0 image-manage-actions transition-all">
-                                                                <button className="btn btn-danger btn-sm rounded-circle p-1" style={{ width: '24px', height: '24px', fontSize: '0.6rem' }} onClick={(e) => { e.stopPropagation(); handleDeleteImage(img.id); }}><i className="bi bi-trash"></i></button>
-                                                                <label className="btn btn-primary btn-sm rounded-circle p-1" style={{ width: '24px', height: '24px', fontSize: '0.6rem', cursor: 'pointer', backgroundColor: 'var(--note-primary-color)', borderColor: 'var(--note-primary-color)' }} onClick={(e) => e.stopPropagation()}><i className="bi bi-arrow-repeat"></i><input type="file" className="d-none" accept="image/*" onChange={(e) => handleImageUpload(e, img.id)} /></label>
-                                                            </div>
+                                    <div className="lg:col-span-4 space-y-10">
+                                        {selectedNote.user_id === auth.user.id && (
+                                            <div className="space-y-4 bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100">
+                                                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2 uppercase tracking-widest" onClick={() => setShowPasswordSettings(!showPasswordSettings)} style={{ cursor: 'pointer' }}>
+                                                    <Shield size={16} className="text-emerald-700" /> Bảo mật
+                                                </h4>
+                                                {showPasswordSettings && (
+                                                    <form onSubmit={handlePasswordChange} className="space-y-3">
+                                                        {selectedNote.has_password && (
+                                                            <input type="password" placeholder="Mật khẩu cũ" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-700/10" value={passwordForm.current_password} onChange={(e) => setPasswordForm({...passwordForm, current_password: e.target.value})} required />
+                                                        )}
+                                                        <input type="password" placeholder="Mật khẩu mới" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-700/10" value={passwordForm.password} onChange={(e) => setPasswordForm({...passwordForm, password: e.target.value})} required />
+                                                        <input type="password" placeholder="Xác nhận lại" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-700/10" value={passwordForm.password_confirmation} onChange={(e) => setPasswordForm({...passwordForm, password_confirmation: e.target.value})} required />
+                                                        <div className="flex gap-2 pt-2">
+                                                            <button type="submit" className="flex-1 py-2 bg-emerald-800 text-white rounded-xl font-bold text-xs border-0">Lưu</button>
+                                                            {selectedNote.has_password && <button type="button" className="flex-1 py-2 bg-rose-50 text-rose-500 rounded-xl font-bold text-xs border-0" onClick={disablePassword}>Tắt</button>}
                                                         </div>
-                                                    ))}
-                                                    <div className="col-4">
-                                                        <label className="btn btn-body-secondary w-100 h-100 d-flex flex-column align-items-center justify-content-center border-dashed rounded-3 p-3 transition-all" style={{ border: '2px dashed #dee2e6', minHeight: '80px', cursor: 'pointer' }}><i className="bi bi-plus-circle text-secondary opacity-50 fs-4"></i><input type="file" className="d-none" accept="image/*" onChange={(e) => handleImageUpload(e)} /></label>
-                                                    </div>
-                                                </div>
-                                            </section>
-
-                                            <div className="mt-auto pt-3 border-top">
-                                                <button className="btn btn-outline-danger w-100 rounded-pill fw-bold py-2 mb-3 shadow-none border-opacity-25" onClick={() => confirmDelete(selectedNote)}><i className="bi bi-trash3 me-2"></i>Xóa ghi chú này</button>
+                                                    </form>
+                                                )}
+                                                {!showPasswordSettings && selectedNote.has_password && <span className="inline-block px-3 py-1 bg-emerald-100 text-emerald-800 rounded-lg text-[10px] font-bold uppercase">Đã bảo vệ</span>}
                                             </div>
+                                        )}
+
+                                        <div className="space-y-4">
+                                            <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2 uppercase tracking-widest">
+                                                <Tag size={16} className="text-emerald-700" /> Nhãn dán
+                                            </h4>
+                                            <form onSubmit={handleQuickAddLabel} className="relative group">
+                                                <input type="text" className="w-full pl-4 pr-12 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-700/10" placeholder="Thêm nhãn nhanh..." value={quickLabelName} onChange={(e) => setQuickLabelName(e.target.value)} />
+                                                <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center hover:bg-emerald-800 hover:text-white transition-all border-0"><Plus size={16} /></button>
+                                            </form>
+                                            <div className="flex flex-wrap gap-2">
+                                                {allLabels.map(label => {
+                                                    const isSelected = selectedNote.labels.some(l => l.id === label.id);
+                                                    return (
+                                                        <button key={label.id} className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border-0 ${isSelected ? 'bg-emerald-800 text-white shadow-md' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`} onClick={() => handleLabelSync(label)}>#{label.name}</button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2 uppercase tracking-widest">
+                                                <Grid size={16} className="text-emerald-700" /> Hình ảnh
+                                            </h4>
+                                            <div className="grid grid-cols-3 gap-3">
+                                                {selectedNote.images.map(img => (
+                                                    <div key={img.id} className="relative group aspect-square rounded-2xl overflow-hidden border border-slate-100">
+                                                        <img src={`/storage/${img.path}`} className="w-full h-full object-cover cursor-zoom-in" onClick={() => setPreviewImage(`/storage/${img.path}`)} />
+                                                        <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2">
+                                                            <button className="w-8 h-8 rounded-lg bg-rose-500 text-white flex items-center justify-center border-0" onClick={() => handleDeleteImage(img.id)}><Trash2 size={14} /></button>
+                                                            <label className="w-8 h-8 rounded-lg bg-white text-slate-900 flex items-center justify-center cursor-pointer border-0"><Share2 size={14} /><input type="file" className="hidden" onChange={(e) => handleImageUpload(e, img.id)} /></label>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                <label className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-300 hover:border-emerald-700/50 hover:text-emerald-700 transition-all cursor-pointer">
+                                                    <Plus size={24} />
+                                                    <input type="file" className="hidden" onChange={(e) => handleImageUpload(e)} />
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-6 mt-auto">
+                                            <button className="w-full py-4 rounded-[1.5rem] bg-rose-50 text-rose-500 font-bold flex items-center justify-center gap-2 hover:bg-rose-100 transition-all border-0" onClick={() => confirmDelete(selectedNote)}>
+                                                <Trash2 size={18} /> Xóa ghi chú
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </motion.div>
                     </div>
-                </div>
-            )}
+                )}
+            </AnimatePresence>
 
+            {/* Sub-modals */}
             <NotePasswordModal show={showPasswordModal} note={pendingAction?.note} onSuccess={handlePasswordSuccess} onCancel={() => { closeNote(); setPendingAction(null); }} />
             <NoteShareModal show={showShareModal} note={selectedNote} onClose={() => setShowShareModal(false)} />
-            <Lightbox image={previewImage} onClose={() => setPreviewImage(null)} />
             <LabelManager show={showLabelManager} labels={allLabels} onClose={() => setShowLabelManager(false)} />
             <ConfirmationModal show={showDeleteModal} title="Xác nhận xóa" message="Dữ liệu ghi chú và hình ảnh sẽ bị xóa vĩnh viễn. Bạn chắc chắn chứ?" onConfirm={handleDelete} onCancel={() => setShowDeleteModal(false)} />
+            
+            {/* Image Preview Lightbox */}
+            <AnimatePresence>
+                {previewImage && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[200] bg-slate-900/90 backdrop-blur-xl flex items-center justify-center p-6" onClick={() => setPreviewImage(null)}>
+                        <motion.img initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} src={previewImage} className="max-w-full max-h-full rounded-3xl shadow-3xl" />
+                        <button className="absolute top-10 right-10 w-12 h-12 rounded-2xl bg-white/10 text-white hover:bg-white hover:text-slate-900 transition-all border-0 flex items-center justify-center"><X size={24} /></button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             <style dangerouslySetInnerHTML={{ __html: `
-                .note-card { background-color: var(--note-bg-color) !important; color: var(--note-text-color); cursor: pointer; border-color: rgba(var(--note-primary-rgb), 0.2); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
-                .note-card:hover { transform: translateY(-6px); box-shadow: 0 1rem 3rem rgba(var(--note-primary-rgb), 0.15)!important; border-color: var(--note-primary-color); }
-                .note-card.border-primary { border-color: var(--note-primary-color) !important; border-width: 2px !important; }
-                .placeholder-white { color: white !important; }
-                .placeholder-white::placeholder { color: rgba(255, 255, 255, 0.65) !important; }
-                .transition-all { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-                .scrollbar-hide::-webkit-scrollbar { display: none; }
-                .hover-lift:hover { transform: translateY(-5px); box-shadow: 0 1rem 3rem rgba(0,0,0,.1) !important; }
-                .border-dashed { border-style: dashed !important; }
-                .image-manage-group:hover .image-manage-actions { opacity: 1 !important; }
-                .cursor-zoom-in { cursor: zoom-in; }
-                @keyframes pulse {
-                    0% { transform: scale(1); }
-                    50% { transform: scale(1.05); }
-                    100% { transform: scale(1); }
+                .glass-card-note {
+                    background: rgba(255, 255, 255, 0.6);
+                    backdrop-filter: blur(20px) saturate(180%);
+                    -webkit-backdrop-filter: blur(20px) saturate(180%);
                 }
-                .animate-pulse { animation: pulse 2s infinite ease-in-out; }
+                
+                input:focus, textarea:focus { outline: none !important; }
+                
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 6px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: #e2e8f0;
+                    border-radius: 10px;
+                }
+                
+                .no-underline { text-decoration: none !important; }
+                
+                .shadow-3xl {
+                    box-shadow: 0 35px 60px -15px rgba(0, 0, 0, 0.1);
+                }
             `}} />
         </BootstrapLayout>
     );
 }
 
-function Lightbox({ image, onClose }) {
-    if (!image) return null;
-    return (
-        <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.9)', zIndex: 2000 }} onClick={onClose}>
-            <div className="modal-dialog modal-dialog-centered modal-xl">
-                <div className="modal-content bg-transparent border-0 text-center">
-                    <img src={image} className="img-fluid rounded shadow-lg max-vh-90 mx-auto" alt="Preview" style={{ maxHeight: '90vh' }} />
-                </div>
-            </div>
-        </div>
-    );
+function handlePasswordSuccess() {
+    // Already defined in the main component but kept here for clarity if needed as a helper
 }

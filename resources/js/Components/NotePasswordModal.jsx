@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import axios from 'axios';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Lock, ShieldCheck, X, Loader2, ArrowRight } from 'lucide-react';
 
 export default function NotePasswordModal({ show, note, onSuccess, onCancel }) {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-
-    if (!show || !note) return null;
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -27,42 +27,67 @@ export default function NotePasswordModal({ show, note, onSuccess, onCancel }) {
     };
 
     return (
-        <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(5px)', zIndex: 1100 }}>
-            <div className="modal-dialog modal-dialog-centered modal-sm">
-                <div className="modal-content border-0 shadow rounded-4 p-3">
-                    <div className="modal-header border-0 text-center d-block pt-4 pb-0">
-                        <div className="bg-warning bg-opacity-10 text-warning rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style={{ width: '60px', height: '60px' }}>
-                            <i className="bi bi-lock-fill fs-2"></i>
+        <AnimatePresence>
+            {show && (
+                <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4">
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 bg-slate-900/60 backdrop-blur-md" 
+                        onClick={onCancel} 
+                    />
+                    <motion.div 
+                        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                        className="relative w-full max-w-[400px] bg-white rounded-[3rem] shadow-3xl overflow-hidden border border-slate-100 p-8 md:p-10"
+                    >
+                        <div className="text-center space-y-6">
+                            <div className="inline-flex p-4 rounded-3xl bg-amber-50 text-amber-600 shadow-xl shadow-amber-600/10">
+                                <Lock size={32} />
+                            </div>
+                            
+                            <div>
+                                <h3 className="text-2xl font-extrabold text-slate-900">Ghi chú đã bị khóa</h3>
+                                <p className="text-slate-500 font-medium mt-2">Vui lòng nhập mật khẩu bảo mật để truy cập nội dung này.</p>
+                            </div>
+
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <div className="relative group">
+                                    <input 
+                                        type="password" 
+                                        className={`w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-center text-slate-900 font-bold placeholder:text-slate-300 focus:ring-4 focus:ring-emerald-700/5 focus:border-emerald-700 transition-all ${error ? 'border-rose-500 ring-rose-500/10' : ''}`} 
+                                        placeholder="••••••••" 
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        autoFocus
+                                        required
+                                    />
+                                    {error && <p className="text-xs text-rose-500 font-bold mt-2">{error}</p>}
+                                </div>
+
+                                <div className="pt-2 space-y-3">
+                                    <button 
+                                        type="submit" 
+                                        className="w-full py-4 bg-emerald-800 text-white rounded-2xl font-extrabold shadow-xl shadow-emerald-800/20 hover:bg-emerald-900 transition-all border-0 flex items-center justify-center gap-2 disabled:opacity-70" 
+                                        disabled={loading}
+                                    >
+                                        {loading ? <Loader2 size={20} className="animate-spin" /> : <>Xác nhận <ArrowRight size={18} /></>}
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        className="w-full py-3 text-slate-400 font-bold hover:text-slate-600 transition-all border-0 bg-transparent text-sm" 
+                                        onClick={onCancel}
+                                    >
+                                        Hủy bỏ
+                                    </button>
+                                </div>
+                            </form>
                         </div>
-                        <h5 className="modal-title fw-bold">Ghi chú đã bị khóa</h5>
-                        <p className="text-muted small mt-2">Vui lòng nhập mật khẩu để tiếp tục</p>
-                    </div>
-                    <div className="modal-body">
-                        <form onSubmit={handleSubmit}>
-                            <div className="mb-3">
-                                <input 
-                                    type="password" 
-                                    className={`form-control rounded-pill text-center ${error ? 'is-invalid' : ''}`} 
-                                    placeholder="••••••••" 
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    autoFocus
-                                    required
-                                />
-                                {error && <div className="invalid-feedback text-center mt-2">{error}</div>}
-                            </div>
-                            <div className="d-grid gap-2">
-                                <button type="submit" className="btn btn-primary rounded-pill fw-bold" disabled={loading}>
-                                    {loading ? 'Đang kiểm tra...' : 'Xác nhận'}
-                                </button>
-                                <button type="button" className="btn btn-link text-secondary text-decoration-none small" onClick={onCancel}>
-                                    Hủy bỏ
-                                </button>
-                            </div>
-                        </form>
-                    </div>
+                    </motion.div>
                 </div>
-            </div>
-        </div>
+            )}
+        </AnimatePresence>
     );
 }
