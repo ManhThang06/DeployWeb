@@ -141,8 +141,8 @@ export default function BootstrapLayout({ children }) {
                     </div>
 
                     {/* Desktop Menu */}
-                    <div className="collapse navbar-collapse" id="navbarNav">
-                        <ul className="navbar-nav ms-auto align-items-center">
+                    <div className="d-none d-lg-flex ms-auto" id="navbarNav">
+                        <ul className="navbar-nav align-items-center">
                             {user && (
                                 <li className="nav-item ms-lg-3 d-none d-lg-block">
                                     <div className="d-flex bg-white bg-opacity-25 rounded-pill p-1 position-relative" style={{ width: '240px', height: '40px' }}>

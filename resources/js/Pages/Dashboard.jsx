@@ -550,7 +550,7 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                             <div className={`card h-100 border shadow-sm rounded-4 note-card transition-all ${note.is_pinned ? 'border-primary border-2 bg-primary-subtle bg-opacity-10' : ''}`} onClick={() => openNote(note)}>
                                 <div className="card-body p-4">
                                     <div className="d-flex justify-content-between align-items-start mb-3">
-                                        <h6 className="card-title fw-bold mb-0 text-truncate fs-5">{note.title || 'Ghi chú mới'}</h6>
+                                        <h6 className="card-title fw-bold mb-0 text-truncate fs-5" style={{ color: 'inherit' }}>{note.title || 'Ghi chú mới'}</h6>
                                         <div className="d-flex gap-2 align-items-center">
                                             {note.has_password && <i className="bi bi-lock-fill text-warning"></i>}
                                             {note.shared_with && note.shared_with.length > 0 && <i className="bi bi-people-fill text-info"></i>}
@@ -559,7 +559,7 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                                             </button>
                                         </div>
                                     </div>
-                                    <p className="card-text opacity-75 mb-3" style={{ display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: '1.5em' }}>
+                                    <p className="card-text opacity-75 mb-3" style={{ color: 'inherit', display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: '1.5em' }}>
                                         {note.has_password ? '••••••••••••••••' : (note.content || 'Nhấn để thêm nội dung...')}
                                     </p>
                                     <div className="d-flex flex-wrap gap-1 mt-auto">
@@ -604,15 +604,15 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                                     <div className="col-lg-8 border-end-lg pe-lg-5">
                                         <input 
                                             type="text" 
-                                            className="form-control form-control-lg border-0 bg-transparent fw-bold mb-4 p-0 shadow-none fs-1" 
-                                            style={{ color: 'var(--note-text-color)' }}
+                                            className="form-control form-control-lg border-0 bg-transparent fw-bold mb-4 p-0 shadow-none fs-1 placeholder-white" 
+                                            style={{ color: 'var(--note-text-color) !important' }}
                                             placeholder="Tiêu đề" 
                                             value={noteForm.title} 
                                             onChange={(e) => setNoteForm({ ...noteForm, title: e.target.value })} 
                                         />
                                         <textarea 
-                                            className="form-control border-0 bg-transparent p-0 shadow-none fs-4 opacity-75" 
-                                            style={{ color: 'var(--note-text-color)', resize: 'none' }}
+                                            className="form-control border-0 bg-transparent p-0 shadow-none fs-4 opacity-75 placeholder-white" 
+                                            style={{ color: 'var(--note-text-color) !important', resize: 'none' }}
                                             rows="12" 
                                             placeholder="Nội dung..." 
                                             value={noteForm.content} 

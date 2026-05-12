@@ -23,3 +23,6 @@ B3: Cài đặt thư viện JS và Build giao diện (Chạy ở máy thật):
     npm install
     npm run build
 B4: Vào địa chỉ: http://localhost:8000
+
+Tính năng được thêm vào:
+1: Duy trì đăng nhập ở trang login

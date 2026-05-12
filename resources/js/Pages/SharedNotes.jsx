@@ -382,8 +382,8 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
                                             </span>
                                             {note.is_pinned && <i className="bi bi-pin-angle-fill text-primary"></i>}
                                         </div>
-                                        <h5 className="fw-bold mb-3">{note.title || 'Không tiêu đề'}</h5>
-                                        <p className="text-muted small mb-4 line-clamp-3">
+                                        <h5 className="fw-bold mb-3" style={{ color: 'inherit' }}>{note.title || 'Không tiêu đề'}</h5>
+                                        <p className="small mb-4 line-clamp-3" style={{ color: 'inherit', opacity: 0.75 }}>
                                             {note.content || 'Trống...'}
                                         </p>
                                         
@@ -436,16 +436,16 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
                                     <div className="col-lg-8 border-end-lg pe-lg-5">
                                         <input 
                                             type="text" 
-                                            className="form-control form-control-lg border-0 bg-transparent fw-bold mb-4 p-0 shadow-none fs-1" 
-                                            style={{ color: 'var(--note-text-color)' }}
+                                            className="form-control form-control-lg border-0 bg-transparent fw-bold mb-4 p-0 shadow-none fs-1 placeholder-white" 
+                                            style={{ color: 'var(--note-text-color) !important' }}
                                             placeholder="Tiêu đề" 
                                             value={noteForm.title} 
                                             onChange={(e) => setNoteForm({ ...noteForm, title: e.target.value })}
                                             disabled={selectedNote.permission !== 'edit'}
                                         />
                                         <textarea 
-                                            className="form-control border-0 bg-transparent p-0 shadow-none fs-4 opacity-75" 
-                                            style={{ color: 'var(--note-text-color)', resize: 'none' }}
+                                            className="form-control border-0 bg-transparent p-0 shadow-none fs-4 opacity-75 placeholder-white" 
+                                            style={{ color: 'var(--note-text-color) !important', resize: 'none' }}
                                             rows="12" 
                                             placeholder="Nội dung..." 
                                             value={noteForm.content} 
