@@ -200,9 +200,9 @@ export default function Settings({ status }) {
                                         
                                         <div className="mb-5">
                                             <label className="form-label fw-bold small text-uppercase text-secondary">Địa chỉ Email</label>
-                                            <div className="input-group">
-                                                <span className="input-group-text bg-light border-0 px-3"><i className="bi bi-envelope"></i></span>
-                                                <input type="email" className="form-control bg-light border-0 py-2" value={auth.user.email} disabled />
+                                            <div className="input-group custom-email-group">
+                                                <span className="input-group-text border-0 px-3"><i className="bi bi-envelope"></i></span>
+                                                <input type="email" className="form-control border-0 py-2 shadow-none" value={auth.user.email} disabled />
                                             </div>
                                             <div className="form-text mt-2 text-warning"><i className="bi bi-info-circle me-1"></i> Email không thể thay đổi sau khi đăng ký.</div>
                                         </div>
@@ -284,7 +284,7 @@ export default function Settings({ status }) {
                                             {/* Màu sắc & Kích thước */}
                                             <div className="row g-4 mb-4">
                                                 <div className="col-md-6">
-                                                    <label className="form-label fw-bold small text-uppercase text-secondary">Màu chữ</label>
+                                                    <label className="form-label fw-bold small text-uppercase text-secondary">Màu chữ ghi chú</label>
                                                     <div className="d-flex align-items-center gap-2 p-2 border rounded-3 bg-body">
                                                         <input 
                                                             type="color" 
@@ -296,7 +296,7 @@ export default function Settings({ status }) {
                                                     </div>
                                                 </div>
                                                 <div className="col-md-6">
-                                                    <label className="form-label fw-bold small text-uppercase text-secondary">Tông màu chủ đạo</label>
+                                                    <label className="form-label fw-bold small text-uppercase text-secondary">Màu ghi chú</label>
                                                     <select 
                                                         className="form-select border-2 rounded-3 py-2" 
                                                         value={appearanceForm.data.color_scheme}
@@ -352,6 +352,23 @@ export default function Settings({ status }) {
                     color: #fff;
                     background-color: var(--bs-primary);
                     border-color: var(--bs-primary);
+                }
+                [data-bs-theme="dark"] .custom-email-group, 
+                [data-bs-theme="dark"] .custom-email-group .input-group-text, 
+                [data-bs-theme="dark"] .custom-email-group .form-control {
+                    background-color: rgba(255, 255, 255, 0.05) !important;
+                    color: white !important;
+                }
+                [data-bs-theme="dark"] .custom-email-group .form-control::placeholder {
+                    color: rgba(255, 255, 255, 0.5) !important;
+                }
+                .custom-email-group {
+                    border-radius: 10px;
+                    overflow: hidden;
+                    border: 1px solid rgba(0,0,0,0.1);
+                }
+                [data-bs-theme="dark"] .custom-email-group {
+                    border-color: rgba(255,255,255,0.1);
                 }
             `}} />
         </BootstrapLayout>

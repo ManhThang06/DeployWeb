@@ -583,7 +583,7 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
             {showModal && selectedNote && (
                 <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(10px)', zIndex: 1060 }}>
                     <div className="modal-dialog modal-xl modal-dialog-centered">
-                        <div className="modal-content border-0 shadow-2xl rounded-5 overflow-hidden bg-body">
+                        <div className="modal-content border-0 shadow-2xl rounded-5 overflow-hidden" style={{ backgroundColor: 'var(--note-bg-color)', backdropFilter: 'blur(20px)' }}>
                             <div className="modal-header border-0 px-4 pt-4 pb-0 d-flex justify-content-between align-items-center">
                                 <div className="d-flex align-items-center gap-3">
                                     <button className={`btn rounded-pill px-4 btn-sm fw-bold transition-all ${selectedNote.is_pinned ? 'btn-primary shadow' : 'btn-outline-secondary'}`} onClick={() => togglePin(selectedNote)}>
@@ -602,15 +602,29 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                             <div className="modal-body p-4 p-lg-5 pt-3">
                                 <div className="row g-4">
                                     <div className="col-lg-8 border-end-lg pe-lg-5">
-                                        <input type="text" className="form-control form-control-lg border-0 bg-transparent fw-bold mb-4 p-0 shadow-none fs-1 text-body" placeholder="Tiêu đề" value={noteForm.title} onChange={(e) => setNoteForm({ ...noteForm, title: e.target.value })} />
-                                        <textarea className="form-control border-0 bg-transparent p-0 shadow-none fs-4 text-body opacity-75" rows="12" placeholder="Nội dung..." style={{ resize: 'none' }} value={noteForm.content} onChange={(e) => setNoteForm({ ...noteForm, content: e.target.value })}></textarea>
+                                        <input 
+                                            type="text" 
+                                            className="form-control form-control-lg border-0 bg-transparent fw-bold mb-4 p-0 shadow-none fs-1" 
+                                            style={{ color: 'var(--note-text-color)' }}
+                                            placeholder="Tiêu đề" 
+                                            value={noteForm.title} 
+                                            onChange={(e) => setNoteForm({ ...noteForm, title: e.target.value })} 
+                                        />
+                                        <textarea 
+                                            className="form-control border-0 bg-transparent p-0 shadow-none fs-4 opacity-75" 
+                                            style={{ color: 'var(--note-text-color)', resize: 'none' }}
+                                            rows="12" 
+                                            placeholder="Nội dung..." 
+                                            value={noteForm.content} 
+                                            onChange={(e) => setNoteForm({ ...noteForm, content: e.target.value })}
+                                        ></textarea>
                                     </div>
 
                                     <div className="col-lg-4">
                                         <div className="d-flex flex-column gap-4 h-100">
                                             {selectedNote.user_id === auth.user.id && (
-                                                <section className="bg-light p-3 rounded-4 border">
-                                                    <h6 className="fw-bold mb-3 d-flex align-items-center text-warning" onClick={() => setShowPasswordSettings(!showPasswordSettings)} style={{ cursor: 'pointer' }}>
+                                                <section className="bg-light-subtle p-3 rounded-4 border">
+                                                    <h6 className="fw-bold mb-3 d-flex align-items-center" onClick={() => setShowPasswordSettings(!showPasswordSettings)} style={{ cursor: 'pointer', color: 'var(--note-primary-color)' }}>
                                                         <i className={`bi ${selectedNote.has_password ? 'bi-shield-lock-fill' : 'bi-shield-lock'} me-2`}></i> Bảo mật ghi chú
                                                         <i className={`bi bi-chevron-${showPasswordSettings ? 'up' : 'down'} ms-auto small`}></i>
                                                     </h6>
@@ -631,7 +645,7 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                                                                 <input type="password" placeholder="Xác nhận mật khẩu" className="form-control form-control-sm rounded-pill" value={passwordForm.password_confirmation} onChange={(e) => setPasswordForm({...passwordForm, password_confirmation: e.target.value})} required />
                                                             </div>
                                                             <div className="d-flex gap-2">
-                                                                <button type="submit" className="btn btn-sm btn-primary rounded-pill px-3">Lưu</button>
+                                                                <button type="submit" className="btn btn-sm btn-primary rounded-pill px-3" style={{ backgroundColor: 'var(--note-primary-color)', borderColor: 'var(--note-primary-color)' }}>Lưu</button>
                                                                 {selectedNote.has_password && <button type="button" className="btn btn-sm btn-outline-danger rounded-pill px-3" onClick={disablePassword}>Tắt khóa</button>}
                                                             </div>
                                                         </form>
@@ -641,29 +655,39 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                                             )}
 
                                             <section>
-                                                <h6 className="fw-bold mb-3 d-flex align-items-center text-primary"><i className="bi bi-tags me-2"></i>Nhãn dán</h6>
+                                                <h6 className="fw-bold mb-3 d-flex align-items-center" style={{ color: 'var(--note-primary-color)' }}><i className="bi bi-tags me-2"></i>Nhãn dán</h6>
                                                 <form onSubmit={handleQuickAddLabel} className="mb-3">
                                                     <div className="input-group input-group-sm shadow-sm rounded-pill overflow-hidden border">
-                                                        <input type="text" className="form-control border-0 bg-transparent shadow-none" placeholder="Tạo nhãn mới & gán..." value={quickLabelName} onChange={(e) => setQuickLabelName(e.target.value)} />
-                                                        <button className="btn btn-primary border-0" type="submit"><i className="bi bi-plus"></i></button>
+                                                        <input type="text" className="form-control border-0 bg-transparent shadow-none placeholder-white" placeholder="Tạo nhãn mới & gán..." value={quickLabelName} onChange={(e) => setQuickLabelName(e.target.value)} />
+                                                        <button className="btn border-0 text-white" type="submit" style={{ backgroundColor: 'var(--note-primary-color)' }}><i className="bi bi-plus"></i></button>
                                                     </div>
                                                 </form>
                                                 <div className="d-flex flex-wrap gap-2 mb-3">
-                                                    {allLabels.map(label => (
-                                                        <button key={label.id} className={`btn btn-sm rounded-pill px-3 transition-all border ${selectedNote.labels.some(l => l.id === label.id) ? 'btn-primary shadow-sm' : 'btn-light'}`} onClick={() => handleLabelSync(label)}>#{label.name}</button>
-                                                    ))}
+                                                    {allLabels.map(label => {
+                                                        const isSelected = selectedNote.labels.some(l => l.id === label.id);
+                                                        return (
+                                                            <button 
+                                                                key={label.id} 
+                                                                className={`btn btn-sm rounded-pill px-3 transition-all border ${isSelected ? 'text-white shadow-sm' : 'btn-light'}`} 
+                                                                style={isSelected ? { backgroundColor: 'var(--note-primary-color)', borderColor: 'var(--note-primary-color)' } : {}}
+                                                                onClick={() => handleLabelSync(label)}
+                                                            >
+                                                                #{label.name}
+                                                            </button>
+                                                        );
+                                                    })}
                                                 </div>
                                             </section>
 
                                             <section className="flex-grow-1">
-                                                <h6 className="fw-bold mb-3 d-flex align-items-center text-primary"><i className="bi bi-images me-2"></i>Hình ảnh</h6>
+                                                <h6 className="fw-bold mb-3 d-flex align-items-center" style={{ color: 'var(--note-primary-color)' }}><i className="bi bi-images me-2"></i>Hình ảnh</h6>
                                                 <div className="row g-2 mb-3">
                                                     {selectedNote.images.map(img => (
                                                         <div key={img.id} className="col-4 position-relative image-manage-group">
                                                             <div className="ratio ratio-1x1 rounded-3 overflow-hidden shadow-sm border bg-body-secondary cursor-zoom-in" onClick={() => setPreviewImage(`/storage/${img.path}`)}><img src={`/storage/${img.path}`} className="object-fit-cover" alt="note" /></div>
                                                             <div className="position-absolute top-0 end-0 m-1 d-flex flex-column gap-1 opacity-0 image-manage-actions transition-all">
                                                                 <button className="btn btn-danger btn-sm rounded-circle p-1" style={{ width: '24px', height: '24px', fontSize: '0.6rem' }} onClick={(e) => { e.stopPropagation(); handleDeleteImage(img.id); }}><i className="bi bi-trash"></i></button>
-                                                                <label className="btn btn-primary btn-sm rounded-circle p-1" style={{ width: '24px', height: '24px', fontSize: '0.6rem', cursor: 'pointer' }} onClick={(e) => e.stopPropagation()}><i className="bi bi-arrow-repeat"></i><input type="file" className="d-none" accept="image/*" onChange={(e) => handleImageUpload(e, img.id)} /></label>
+                                                                <label className="btn btn-primary btn-sm rounded-circle p-1" style={{ width: '24px', height: '24px', fontSize: '0.6rem', cursor: 'pointer', backgroundColor: 'var(--note-primary-color)', borderColor: 'var(--note-primary-color)' }} onClick={(e) => e.stopPropagation()}><i className="bi bi-arrow-repeat"></i><input type="file" className="d-none" accept="image/*" onChange={(e) => handleImageUpload(e, img.id)} /></label>
                                                             </div>
                                                         </div>
                                                     ))}
@@ -692,8 +716,11 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
             <ConfirmationModal show={showDeleteModal} title="Xác nhận xóa" message="Dữ liệu ghi chú và hình ảnh sẽ bị xóa vĩnh viễn. Bạn chắc chắn chứ?" onConfirm={handleDelete} onCancel={() => setShowDeleteModal(false)} />
 
             <style dangerouslySetInnerHTML={{ __html: `
-                .note-card { background-color: var(--bs-body-bg); color: inherit; cursor: pointer; }
-                .note-card:hover { transform: translateY(-6px); box-shadow: 0 1rem 3rem rgba(0,0,0,.175)!important; }
+                .note-card { background-color: var(--note-bg-color) !important; color: var(--note-text-color); cursor: pointer; border-color: rgba(var(--note-primary-rgb), 0.2); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+                .note-card:hover { transform: translateY(-6px); box-shadow: 0 1rem 3rem rgba(var(--note-primary-rgb), 0.15)!important; border-color: var(--note-primary-color); }
+                .note-card.border-primary { border-color: var(--note-primary-color) !important; border-width: 2px !important; }
+                .placeholder-white { color: white !important; }
+                .placeholder-white::placeholder { color: rgba(255, 255, 255, 0.65) !important; }
                 .transition-all { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
                 .scrollbar-hide::-webkit-scrollbar { display: none; }
                 .hover-lift:hover { transform: translateY(-5px); box-shadow: 0 1rem 3rem rgba(0,0,0,.1) !important; }

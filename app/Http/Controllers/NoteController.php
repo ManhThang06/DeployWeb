@@ -146,7 +146,7 @@ class NoteController extends Controller
             abort(403);
         }
         $request->validate([
-            'image' => 'required|image|max:2048',
+            'image' => 'required|image',
         ]);
 
         $path = $request->file('image')->store('notes', 'public');
@@ -194,7 +194,7 @@ class NoteController extends Controller
         }
 
         $request->validate([
-            'image' => 'required|image|max:2048',
+            'image' => 'required|image',
         ]);
 
         // Delete old physical file

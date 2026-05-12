@@ -82,6 +82,8 @@ services:
     volumes:
       - ./:/var/www
       - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+      - vendor_data:/var/www/vendor
+      - node_modules_data:/var/www/node_modules
     environment:
       SERVICE_NAME: reverb
     command: php artisan reverb:start --host=0.0.0.0 --port=8080
