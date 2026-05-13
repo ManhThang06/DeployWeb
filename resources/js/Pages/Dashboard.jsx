@@ -9,7 +9,7 @@ import NoteShareModal from '@/Components/NoteShareModal';
 import axios from 'axios';
 import useSync from '@/Hooks/useSync';
 import { db } from '@/db';
-import { confirmDestructive, confirmAction } from '@/Utils/sweetalert';
+import { confirmDestructive, confirmAction, notifyError } from '@/Utils/sweetalert';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Plus, Users, Grid, List, Tag, Pin, PinOff, Trash2, Shield, Calendar, Share2, MoreVertical, X, CheckCircle2, CloudOff, Loader2 } from 'lucide-react';
 
@@ -248,11 +248,36 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
         });
     };
 
+    const handlePasswordSuccess = (password) => {
+        const action = pendingAction;
+        setPendingAction(null);
+        setShowPasswordModal(false);
+        if (action?.type === 'open' && action.note) {
+            const note = action.note;
+            lastSavedContent.current = { title: note.title || '', content: note.content || '' };
+            setSelectedNote({ ...note, unlockedPassword: password });
+            setNoteForm({ title: note.title || '', content: note.content || '' });
+            setShowModal(true);
+            setShowPasswordSettings(false);
+        } else if (action?.type === 'delete' && action.note) {
+            setNoteToDelete(action.note);
+            setShowDeleteModal(true);
+        }
+    };
+
     const disablePassword = () => {
+        if (!passwordForm.current_password.trim()) {
+            notifyError('Thiếu thông tin', 'Vui lòng nhập mật khẩu hiện tại để xác nhận tắt bảo mật.');
+            return;
+        }
         confirmAction('Tắt mật khẩu?', 'Bạn có chắc chắn muốn tắt mật khẩu bảo vệ cho ghi chú này?').then((result) => {
             if (result.isConfirmed) {
                 router.post(route('notes.set-password', selectedNote.id), { disable: true, current_password: passwordForm.current_password }, {
-                    onSuccess: () => setShowPasswordSettings(false)
+                    onSuccess: () => {
+                        setPasswordForm({ password: '', password_confirmation: '', current_password: '' });
+                        setShowPasswordSettings(false);
+                    },
+                    onError: () => notifyError('Mật khẩu không đúng', 'Vui lòng kiểm tra lại mật khẩu hiện tại và thử lại.')
                 });
             }
         });
@@ -341,7 +366,8 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                         </div>
                         <input 
                             type="text" 
-                            className="w-full pl-14 pr-6 py-4 bg-white/70 backdrop-blur-md border border-white/40 rounded-3xl text-slate-900 font-medium placeholder:text-slate-400 focus:ring-4 focus:ring-emerald-700/5 focus:border-emerald-700/30 transition-all shadow-sm" 
+                            className="w-full pl-14 pr-6 py-4 rounded-3xl font-medium placeholder:text-slate-400 focus:ring-4 transition-all shadow-sm" 
+                            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-main)', '--tw-ring-color': 'var(--note-primary-color)' }}
                             placeholder="Tìm kiếm nhanh ghi chú..." 
                             value={search} 
                             onChange={(e) => setSearch(e.target.value)} 
@@ -349,7 +375,7 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                     </div>
                     
                     <div className="flex items-center gap-3 w-full md:w-auto">
-                        <Link href={route('notes.shared-with-me')} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-4 bg-white/70 backdrop-blur-md border border-white/40 rounded-3xl text-slate-600 font-bold hover:text-emerald-800 hover:bg-white transition-all shadow-sm no-underline">
+                        <Link href={route('notes.shared-with-me')} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-4 glass-card-note text-slate-500 font-bold hover:text-emerald-500 transition-all shadow-sm no-underline rounded-3xl" style={{ backgroundColor: 'var(--bg-card)' }}>
                             <Users size={18} /> Chia sẻ
                         </Link>
                         <motion.button 
@@ -367,7 +393,8 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                 <div className="flex flex-wrap items-center justify-between gap-4">
                     <div className="flex flex-wrap items-center gap-2">
                         <button 
-                            className={`px-6 py-2.5 rounded-2xl text-sm font-bold transition-all border-0 ${selectedLabelIds.length === 0 ? 'bg-emerald-800 text-white shadow-lg shadow-emerald-800/10' : 'bg-white/60 text-slate-500 hover:bg-white'}`} 
+                            className={`px-6 py-2.5 rounded-2xl text-sm font-bold transition-all border-0 ${selectedLabelIds.length === 0 ? 'bg-emerald-800 text-white shadow-lg shadow-emerald-800/10' : 'text-slate-500 hover:bg-emerald-800/10'}`} 
+                            style={{ backgroundColor: selectedLabelIds.length === 0 ? '' : 'var(--bg-card)', border: selectedLabelIds.length === 0 ? '' : '1px solid var(--border-color)' }}
                             onClick={() => handleFilter(search, [])}
                         >
                             Tất cả
@@ -375,14 +402,16 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                         {labels.map(label => (
                             <button 
                                 key={label.id} 
-                                className={`px-5 py-2.5 rounded-2xl text-sm font-bold transition-all border-0 flex items-center gap-2 ${selectedLabelIds.includes(String(label.id)) ? 'bg-emerald-800 text-white shadow-lg shadow-emerald-800/10' : 'bg-white/60 text-slate-500 hover:bg-white'}`} 
+                                className={`px-5 py-2.5 rounded-2xl text-sm font-bold transition-all border-0 flex items-center gap-2 ${selectedLabelIds.includes(String(label.id)) ? 'bg-emerald-800 text-white shadow-lg shadow-emerald-800/10' : 'text-slate-500 hover:bg-emerald-800/10'}`} 
+                                style={{ backgroundColor: selectedLabelIds.includes(String(label.id)) ? '' : 'var(--bg-card)', border: selectedLabelIds.includes(String(label.id)) ? '' : '1px solid var(--border-color)' }}
                                 onClick={() => toggleLabelFilter(label.id)}
                             >
                                 <Tag size={14} /> {label.name}
                             </button>
                         ))}
                         <button 
-                            className="w-10 h-10 rounded-2xl bg-white/60 text-slate-400 hover:text-emerald-800 hover:bg-white flex items-center justify-center transition-all border-0 ml-2" 
+                            className="w-10 h-10 rounded-2xl text-slate-400 hover:text-emerald-800 flex items-center justify-center transition-all border-0 ml-2" 
+                            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
                             onClick={() => setShowLabelManager(true)}
                         >
                             <Plus size={18} />
@@ -422,7 +451,7 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                                 <div className="flex flex-column h-full">
                                     <div className="flex items-start justify-between mb-4">
                                         <div className="flex-1">
-                                            <h3 className="text-lg font-bold text-slate-900 line-clamp-1 group-hover:text-emerald-800 transition-colors">
+                                            <h3 className="font-bold line-clamp-1 group-hover:opacity-80 transition-opacity" style={{ color: 'var(--note-text-color)', fontSize: 'var(--note-fs-card-title)' }}>
                                                 {note.title || 'Ghi chú mới'}
                                             </h3>
                                             <div className="flex items-center gap-2 mt-1 opacity-50 font-bold text-[10px] uppercase tracking-wider text-slate-500">
@@ -442,7 +471,7 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                                     </div>
 
                                     <div className="flex-grow">
-                                        <p className="text-slate-500 font-medium text-sm line-clamp-4 leading-relaxed">
+                                        <p className="font-medium line-clamp-4 leading-relaxed opacity-70" style={{ color: 'var(--note-text-color)', fontSize: 'var(--note-fs-card-content)' }}>
                                             {note.has_password ? 'Nội dung đã được khóa bảo mật...' : (note.content || 'Chưa có nội dung...')}
                                         </p>
                                     </div>
@@ -483,7 +512,7 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                             initial={{ scale: 0.9, opacity: 0, y: 20 }}
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                            className="relative w-full max-w-6xl max-h-full bg-white/80 backdrop-blur-3xl rounded-[3rem] shadow-3xl overflow-hidden border border-white/50 flex flex-col"
+                            className="relative w-full max-w-6xl max-h-full modal-content rounded-[3rem] shadow-3xl overflow-hidden border border-white/50 flex flex-col"
                         >
                             <div className="px-8 py-6 flex items-center justify-between border-b border-slate-100">
                                 <div className="flex items-center gap-3">
@@ -508,8 +537,8 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                                         )}
                                     </div>
                                 </div>
-                                <button className="w-10 h-10 rounded-2xl bg-slate-100 text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition-all border-0" onClick={closeNote}>
-                                    <X size={20} />
+                                <button className="w-10 h-10 rounded-xl bg-rose-500 text-white hover:bg-rose-600 transition-all border-0 flex items-center justify-center shadow-lg shadow-rose-500/20" onClick={closeNote}>
+                                    <X size={20} strokeWidth={3} />
                                 </button>
                             </div>
 
@@ -518,20 +547,23 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                                     <div className="lg:col-span-8 space-y-8">
                                         <input 
                                             type="text" 
-                                            className="w-full text-4xl md:text-5xl font-extrabold text-slate-900 border-0 bg-transparent p-0 focus:ring-0 placeholder:text-slate-200 tracking-tight" 
+                                            className="w-full font-extrabold border-0 bg-transparent p-0 focus:ring-0 placeholder:text-slate-300 tracking-tight" 
+                                            style={{ color: 'var(--note-text-color)', fontSize: 'var(--note-fs-modal-title)' }}
                                             placeholder="Tiêu đề..." 
                                             value={noteForm.title} 
                                             onChange={(e) => setNoteForm({ ...noteForm, title: e.target.value })} 
                                         />
                                         <textarea 
-                                            className="w-full text-lg md:text-xl font-medium text-slate-600 border-0 bg-transparent p-0 focus:ring-0 placeholder:text-slate-200 resize-none leading-relaxed min-h-[400px]" 
+                                            className="w-full font-medium border-0 bg-transparent p-0 focus:ring-0 placeholder:text-slate-300 resize-none leading-relaxed min-h-[400px]" 
+                                            style={{ color: 'var(--note-text-color)', fontSize: 'var(--note-fs-modal-content)' }}
                                             placeholder="Bắt đầu ghi chú tại đây..." 
                                             value={noteForm.content} 
                                             onChange={(e) => setNoteForm({ ...noteForm, content: e.target.value })}
                                         />
                                     </div>
 
-                                    <div className="lg:col-span-4 space-y-10">
+                                    <div className="lg:col-span-4 space-y-8 h-full flex flex-col">
+
                                         {selectedNote.user_id === auth.user.id && (
                                             <div className="space-y-4 bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100">
                                                 <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2 uppercase tracking-widest" onClick={() => setShowPasswordSettings(!showPasswordSettings)} style={{ cursor: 'pointer' }}>
@@ -540,13 +572,17 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                                                 {showPasswordSettings && (
                                                     <form onSubmit={handlePasswordChange} className="space-y-3">
                                                         {selectedNote.has_password && (
-                                                            <input type="password" placeholder="Mật khẩu cũ" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-700/10" value={passwordForm.current_password} onChange={(e) => setPasswordForm({...passwordForm, current_password: e.target.value})} required />
+                                                            <input type="password" placeholder="Mật khẩu hiện tại" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-700/10" value={passwordForm.current_password} onChange={(e) => setPasswordForm({...passwordForm, current_password: e.target.value})} required />
                                                         )}
                                                         <input type="password" placeholder="Mật khẩu mới" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-700/10" value={passwordForm.password} onChange={(e) => setPasswordForm({...passwordForm, password: e.target.value})} required />
                                                         <input type="password" placeholder="Xác nhận lại" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-700/10" value={passwordForm.password_confirmation} onChange={(e) => setPasswordForm({...passwordForm, password_confirmation: e.target.value})} required />
                                                         <div className="flex gap-2 pt-2">
                                                             <button type="submit" className="flex-1 py-2 bg-emerald-800 text-white rounded-xl font-bold text-xs border-0">Lưu</button>
-                                                            {selectedNote.has_password && <button type="button" className="flex-1 py-2 bg-rose-50 text-rose-500 rounded-xl font-bold text-xs border-0" onClick={disablePassword}>Tắt</button>}
+                                                            {selectedNote.has_password && (
+                                                                <button type="button" className="flex-1 py-2 bg-rose-50 text-rose-500 rounded-xl font-bold text-xs border-0" onClick={disablePassword}>
+                                                                    Tắt bảo mật
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </form>
                                                 )}
@@ -593,9 +629,9 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                                             </div>
                                         </div>
 
-                                        <div className="pt-6 mt-auto">
-                                            <button className="w-full py-4 rounded-[1.5rem] bg-rose-50 text-rose-500 font-bold flex items-center justify-center gap-2 hover:bg-rose-100 transition-all border-0" onClick={() => confirmDelete(selectedNote)}>
-                                                <Trash2 size={18} /> Xóa ghi chú
+                                        <div className="pt-8 mt-auto">
+                                            <button className="w-full py-4 rounded-[1.5rem] bg-rose-500 text-white font-black flex items-center justify-center gap-2 hover:bg-rose-600 transition-all border-0 shadow-lg shadow-rose-500/10" onClick={() => confirmDelete(selectedNote)}>
+                                                <Trash2 size={18} strokeWidth={3} /> Xóa ghi chú này
                                             </button>
                                         </div>
                                     </div>
@@ -607,7 +643,7 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
             </AnimatePresence>
 
             {/* Sub-modals */}
-            <NotePasswordModal show={showPasswordModal} note={pendingAction?.note} onSuccess={handlePasswordSuccess} onCancel={() => { closeNote(); setPendingAction(null); }} />
+            <NotePasswordModal show={showPasswordModal} note={pendingAction?.note} onSuccess={handlePasswordSuccess} onCancel={() => { setShowPasswordModal(false); setPendingAction(null); }} />
             <NoteShareModal show={showShareModal} note={selectedNote} onClose={() => setShowShareModal(false)} />
             <LabelManager show={showLabelManager} labels={allLabels} onClose={() => setShowLabelManager(false)} />
             <ConfirmationModal show={showDeleteModal} title="Xác nhận xóa" message="Dữ liệu ghi chú và hình ảnh sẽ bị xóa vĩnh viễn. Bạn chắc chắn chứ?" onConfirm={handleDelete} onCancel={() => setShowDeleteModal(false)} />
@@ -624,9 +660,16 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
 
             <style dangerouslySetInnerHTML={{ __html: `
                 .glass-card-note {
-                    background: rgba(255, 255, 255, 0.6);
+                    background: color-mix(in srgb, var(--note-primary-color) calc(var(--note-bg-alpha) * 100%), white);
                     backdrop-filter: blur(20px) saturate(180%);
                     -webkit-backdrop-filter: blur(20px) saturate(180%);
+                    border: 1px solid color-mix(in srgb, var(--note-primary-color) 20%, white);
+                }
+
+                .modal-content {
+                    background: color-mix(in srgb, var(--note-primary-color) calc(var(--note-modal-tint) * 100%), white) !important;
+                    backdrop-filter: blur(40px) saturate(200%);
+                    -webkit-backdrop-filter: blur(40px) saturate(200%);
                 }
                 
                 input:focus, textarea:focus { outline: none !important; }
@@ -652,6 +695,3 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
     );
 }
 
-function handlePasswordSuccess() {
-    // Already defined in the main component but kept here for clarity if needed as a helper
-}

@@ -373,7 +373,7 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
                     <div className="row g-4">
                         {notes.map(note => (
                             <div key={note.id} className="col-md-6 col-lg-4">
-                                <div className="card h-100 border shadow-sm rounded-4 transition-all hover-lift">
+                                <div className="card h-100 border shadow-sm rounded-4 transition-all hover-lift note-card">
                                     <div className="card-body p-4">
                                         <div className="d-flex justify-content-between align-items-start mb-3">
                                             <span className={`badge rounded-pill ${note.permission === 'edit' ? 'bg-success-subtle text-success' : 'bg-info-subtle text-info'} border border-opacity-10 mb-2 px-3`}>
@@ -382,8 +382,8 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
                                             </span>
                                             {note.is_pinned && <i className="bi bi-pin-angle-fill text-primary"></i>}
                                         </div>
-                                        <h5 className="fw-bold mb-3" style={{ color: 'inherit' }}>{note.title || 'Không tiêu đề'}</h5>
-                                        <p className="small mb-4 line-clamp-3" style={{ color: 'inherit', opacity: 0.75 }}>
+                                        <h5 className="fw-bold mb-3" style={{ color: 'inherit', fontSize: 'var(--note-fs-card-title)' }}>{note.title || 'Không tiêu đề'}</h5>
+                                        <p className="mb-4 line-clamp-3" style={{ color: 'inherit', opacity: 0.75, fontSize: 'var(--note-fs-card-content)' }}>
                                             {note.content || 'Trống...'}
                                         </p>
                                         
@@ -417,7 +417,7 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
             {showModal && selectedNote && (
                 <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(10px)', zIndex: 1060 }}>
                     <div className="modal-dialog modal-xl modal-dialog-centered">
-                        <div className="modal-content border-0 shadow-2xl rounded-5 overflow-hidden" style={{ backgroundColor: 'var(--note-bg-color)', backdropFilter: 'blur(20px)' }}>
+                        <div className="modal-content border-0 shadow-2xl rounded-5 overflow-hidden" style={{ backgroundColor: 'color-mix(in srgb, var(--note-primary-color) calc(var(--note-modal-tint) * 100%), var(--note-bg-color))', backdropFilter: 'blur(20px)' }}>
                             <div className="modal-header border-0 px-4 pt-4 pb-0 d-flex justify-content-between align-items-center">
                                 <div className="d-flex align-items-center gap-3">
                                     <span className={`badge rounded-pill ${selectedNote.permission === 'edit' ? 'bg-success-subtle text-success' : 'bg-info-subtle text-info'} border border-opacity-10 px-3 py-2 fw-bold`}>
@@ -428,7 +428,9 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
                                         {isSaving ? <span className="text-secondary"><div className="spinner-border spinner-border-sm me-1"></div> Đang lưu...</span> : <span className="text-success fw-medium"><i className="bi bi-check2-circle me-1"></i> Đã đồng bộ</span>}
                                     </div>
                                 </div>
-                                <button type="button" className="btn-close shadow-none" onClick={closeNote}></button>
+                                <button type="button" className="btn bg-danger text-white rounded-3 shadow-sm d-flex align-items-center justify-center p-0" style={{ width: '36px', height: '36px' }} onClick={closeNote}>
+                                    <i className="bi bi-x fs-4"></i>
+                                </button>
                             </div>
                             
                             <div className="modal-body p-4 p-lg-5 pt-3">
@@ -436,16 +438,16 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
                                     <div className="col-lg-8 border-end-lg pe-lg-5">
                                         <input 
                                             type="text" 
-                                            className="form-control form-control-lg border-0 bg-transparent fw-bold mb-4 p-0 shadow-none fs-1 placeholder-white" 
-                                            style={{ color: 'var(--note-text-color) !important' }}
+                                            className="form-control form-control-lg border-0 bg-transparent fw-bold mb-4 p-0 shadow-none placeholder-white" 
+                                            style={{ color: 'var(--note-text-color) !important', fontSize: 'var(--note-fs-modal-title)' }}
                                             placeholder="Tiêu đề" 
                                             value={noteForm.title} 
                                             onChange={(e) => setNoteForm({ ...noteForm, title: e.target.value })}
                                             disabled={selectedNote.permission !== 'edit'}
                                         />
                                         <textarea 
-                                            className="form-control border-0 bg-transparent p-0 shadow-none fs-4 opacity-75 placeholder-white" 
-                                            style={{ color: 'var(--note-text-color) !important', resize: 'none' }}
+                                            className="form-control border-0 bg-transparent p-0 shadow-none opacity-75 placeholder-white" 
+                                            style={{ color: 'var(--note-text-color) !important', resize: 'none', fontSize: 'var(--note-fs-modal-content)' }}
                                             rows="12" 
                                             placeholder="Nội dung..." 
                                             value={noteForm.content} 
@@ -456,6 +458,7 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
 
                                     <div className="col-lg-4">
                                         <div className="d-flex flex-column gap-4 h-100">
+                                            
                                             <section className="bg-light-subtle p-3 rounded-4 border">
                                                 <h6 className="fw-bold mb-2 d-flex align-items-center" style={{ color: 'var(--note-primary-color)' }}>
                                                     <i className="bi bi-person-circle me-2"></i> Người sở hữu
@@ -476,7 +479,7 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
                                                 {selectedNote.permission === 'edit' && (
                                                     <form onSubmit={handleQuickAddLabel} className="mb-3">
                                                         <div className="input-group input-group-sm shadow-sm rounded-pill overflow-hidden border">
-                                                            <input type="text" className="form-control border-0 bg-transparent shadow-none placeholder-white" placeholder="Tạo nhãn mới & gán..." value={quickLabelName} onChange={(e) => setQuickLabelName(e.target.value)} />
+                                                            <input type="text" className="form-control border-0 bg-transparent shadow-none placeholder-dark" placeholder="Tạo nhãn mới & gán..." value={quickLabelName} onChange={(e) => setQuickLabelName(e.target.value)} />
                                                             <button className="btn border-0 text-white" type="submit" style={{ backgroundColor: 'var(--note-primary-color)' }}><i className="bi bi-plus"></i></button>
                                                         </div>
                                                     </form>
@@ -523,7 +526,9 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
 
                                             {selectedNote.permission === 'edit' && (
                                                 <div className="mt-auto pt-3 border-top">
-                                                    <button className="btn btn-outline-danger w-100 rounded-pill fw-bold py-2 mb-3 shadow-none border-opacity-25" onClick={() => confirmDelete(selectedNote)}><i className="bi bi-trash3 me-2"></i>Xóa ghi chú này</button>
+                                                    <button className="btn btn-danger w-100 rounded-4 fw-black py-3 shadow-sm" onClick={() => confirmDelete(selectedNote)}>
+                                                        <i className="bi bi-trash3-fill me-2"></i>Xóa ghi chú này
+                                                    </button>
                                                 </div>
                                             )}
                                         </div>
@@ -546,10 +551,19 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
             <Lightbox image={previewImage} onClose={() => setPreviewImage(null)} />
 
             <style dangerouslySetInnerHTML={{ __html: `
-                .note-card { background-color: var(--note-bg-color) !important; color: var(--note-text-color); cursor: pointer; border-color: rgba(var(--note-primary-rgb), 0.2); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+                .note-card { 
+                    background-color: color-mix(in srgb, var(--note-primary-color) calc(var(--note-bg-alpha) * 100%), var(--note-bg-color)) !important; 
+                    color: var(--note-text-color); 
+                    cursor: pointer; 
+                    border-color: rgba(var(--note-primary-rgb), 0.2); 
+                    backdrop-filter: blur(20px); 
+                    -webkit-backdrop-filter: blur(20px); 
+                }
+                .fw-black { font-weight: 900 !important; }
                 .note-card:hover { transform: translateY(-5px); box-shadow: 0 1rem 3rem rgba(var(--note-primary-rgb), 0.1) !important; border-color: var(--note-primary-color); }
-                .placeholder-white { color: white !important; }
-                .placeholder-white::placeholder { color: rgba(255, 255, 255, 0.65) !important; }
+                .placeholder-white { color: var(--note-text-color) !important; }
+                .placeholder-white::placeholder { color: var(--note-text-color) !important; opacity: 0.5; }
+                .placeholder-dark::placeholder { color: #333 !important; opacity: 0.4; }
                 .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
                 .border-dashed { border-style: dashed !important; }
                 .image-manage-group:hover .image-manage-actions { opacity: 1 !important; }

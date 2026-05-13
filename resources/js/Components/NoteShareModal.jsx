@@ -57,8 +57,8 @@ export default function NoteShareModal({ show, note, onClose }) {
                                 </div>
                                 Chia sẻ ghi chú
                             </h3>
-                            <button className="w-10 h-10 rounded-2xl bg-slate-100 text-slate-500 hover:text-slate-900 transition-all border-0" onClick={onClose}>
-                                <X size={20} />
+                            <button className="w-10 h-10 rounded-xl bg-rose-500 text-white hover:bg-rose-600 transition-all border-0 flex items-center justify-center shadow-lg shadow-rose-500/20" onClick={onClose}>
+                                <X size={20} strokeWidth={3} />
                             </button>
                         </div>
 

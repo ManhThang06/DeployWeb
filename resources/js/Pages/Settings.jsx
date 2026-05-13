@@ -86,19 +86,20 @@ export default function Settings({ status }) {
         <BootstrapLayout>
             <Head title="Cài đặt" />
             
-            <div className="py-6 max-w-5xl mx-auto">
-                <div className="flex flex-col lg:flex-row gap-8">
+            <div className="py-6 max-w-7xl mx-auto">
+                <div className="flex flex-col lg:flex-row gap-10">
                     {/* Glass Sidebar */}
-                    <aside className="lg:w-72">
-                        <div className="glass-card-settings p-4 space-y-2 rounded-[2.5rem] sticky top-28">
-                            <h2 className="px-4 py-2 text-[11px] font-extrabold text-slate-400 uppercase tracking-widest">Cài đặt hệ thống</h2>
+                    <aside className="lg:w-80">
+                        <div className="glass-card-settings p-4 space-y-2 rounded-[2.5rem] sticky top-28 border" style={{ borderColor: 'var(--border-color)' }}>
+                            <h2 className="px-4 py-2 text-[11px] font-extrabold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Cài đặt hệ thống</h2>
                             {tabs.map((tab) => (
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
-                                    className={`w-full flex items-center gap-3 px-4 py-4 rounded-2xl font-bold text-sm transition-all border-0 ${activeTab === tab.id ? 'bg-emerald-800 text-white shadow-xl shadow-emerald-800/20' : 'text-slate-500 hover:bg-white hover:text-slate-900 bg-transparent'}`}
+                                    className={`w-full flex items-center gap-3 px-4 py-4 rounded-2xl font-bold text-sm transition-all border-0 ${activeTab === tab.id ? 'bg-emerald-800 text-white shadow-xl shadow-emerald-800/20' : 'hover:bg-emerald-800/5 bg-transparent'}`}
+                                    style={{ color: activeTab === tab.id ? '#fff' : 'var(--text-main)' }}
                                 >
-                                    <tab.icon size={18} />
+                                    <tab.icon size={18} className={activeTab === tab.id ? 'text-white' : 'text-emerald-700'} />
                                     {tab.label}
                                 </button>
                             ))}
@@ -114,10 +115,10 @@ export default function Settings({ status }) {
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -20 }}
                                 transition={{ duration: 0.3 }}
-                                className="glass-card-settings p-8 md:p-12 rounded-[3rem]"
+                                className="glass-card-settings p-8 md:p-12 rounded-[2.5rem]"
                             >
                                 {status && (
-                                    <div className="mb-8 p-4 bg-emerald-50 text-emerald-700 rounded-2xl text-sm font-bold border border-emerald-100 flex items-center gap-2">
+                                    <div className="mb-8 p-4 bg-emerald-500/10 text-emerald-500 rounded-2xl text-sm font-bold border border-emerald-500/20 flex items-center gap-2">
                                         <CheckCircle2 size={18} /> {status}
                                     </div>
                                 )}
@@ -125,14 +126,19 @@ export default function Settings({ status }) {
                                 {activeTab === 'account' && (
                                     <div className="space-y-10">
                                         <div>
-                                            <h3 className="text-2xl font-extrabold text-slate-900 mb-2">Thông tin cá nhân</h3>
-                                            <p className="text-slate-500 font-medium">Quản lý cách thông tin của bạn hiển thị trên hệ thống.</p>
+                                            <h3 className="text-2xl font-extrabold mb-2" style={{ color: 'var(--text-main)' }}>Thông tin cá nhân</h3>
+                                            <p className="font-medium" style={{ color: 'var(--text-muted)' }}>Quản lý cách thông tin của bạn hiển thị trên hệ thống.</p>
                                         </div>
 
                                         <form onSubmit={updateAccount} className="space-y-8">
                                             <div className="flex flex-col items-center sm:items-start sm:flex-row gap-8">
                                                 <div className="relative group">
-                                                    <div className="w-32 h-32 rounded-[2.5rem] overflow-hidden border-4 border-white shadow-2xl">
+                                                    <div className="w-32 h-32 overflow-hidden shadow-2xl transition-all duration-500 group-hover:scale-105" 
+                                                         style={{ 
+                                                             borderRadius: '30% 70% 70% 30% / 30% 30% 70% 70%',
+                                                             border: '4px solid var(--note-primary-color)',
+                                                             background: 'var(--bg-card)'
+                                                         }}>
                                                         <img 
                                                             src={avatarPreview || (auth.user.avatar ? `/storage/${auth.user.avatar}` : `https://ui-avatars.com/api/?name=${auth.user.display_name}&background=1e3932&color=fff&size=128`)} 
                                                             alt="Avatar" 
@@ -308,7 +314,7 @@ export default function Settings({ status }) {
                                                 {/* Text Color */}
                                                 <div className="space-y-4">
                                                     <label className="text-[13px] font-bold text-slate-700 ml-1 uppercase tracking-wider opacity-60 flex items-center gap-2">
-                                                        <Pipette size={14} /> Màu chữ mặc định
+                                                        <Pipette size={14} /> Màu chữ ghi chú
                                                     </label>
                                                     <div className="flex items-center gap-4 p-4 bg-white/50 border border-slate-100 rounded-3xl">
                                                         <div className="w-12 h-12 rounded-xl overflow-hidden shadow-inner border border-slate-200 relative">
@@ -321,7 +327,7 @@ export default function Settings({ status }) {
                                                 {/* Color Scheme */}
                                                 <div className="space-y-4">
                                                     <label className="text-[13px] font-bold text-slate-700 ml-1 uppercase tracking-wider opacity-60 flex items-center gap-2">
-                                                        <Palette size={14} /> Tông màu chủ đạo
+                                                        <Palette size={14} /> Màu ghi chú
                                                     </label>
                                                     <div className="relative group">
                                                         <select 
@@ -377,10 +383,24 @@ export default function Settings({ status }) {
 
             <style dangerouslySetInnerHTML={{ __html: `
                 .glass-card-settings {
-                    background: rgba(255, 255, 255, 0.6);
+                    background: var(--bg-card);
                     backdrop-filter: blur(20px) saturate(180%);
                     -webkit-backdrop-filter: blur(20px) saturate(180%);
-                    border: 1px solid rgba(255, 255, 255, 0.4);
+                    border: 1px solid var(--border-color);
+                }
+
+                .glass-card-settings h3, .glass-card-settings h4 { color: var(--text-main); }
+                .glass-card-settings p, .glass-card-settings label { color: var(--text-muted); }
+
+                input, select { 
+                    background-color: var(--bg-main) !important; 
+                    color: var(--text-main) !important;
+                    border-color: var(--border-color) !important;
+                }
+                
+                input:focus, select:focus { 
+                    border-color: var(--note-primary-color) !important;
+                    ring-color: var(--note-primary-color) !important;
                 }
                 
                 input:focus, select:focus { outline: none !important; }

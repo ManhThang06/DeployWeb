@@ -64,8 +64,8 @@ export default function LabelManager({ show, labels, onClose }) {
                             <h3 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
                                 <Tag size={20} className="text-emerald-700" /> Quản lý nhãn
                             </h3>
-                            <button className="w-10 h-10 rounded-2xl bg-slate-100 text-slate-500 hover:text-slate-900 transition-all border-0" onClick={onClose}>
-                                <X size={20} />
+                            <button className="w-10 h-10 rounded-xl bg-rose-500 text-white hover:bg-rose-600 transition-all border-0 flex items-center justify-center shadow-lg shadow-rose-500/20" onClick={onClose}>
+                                <X size={20} strokeWidth={3} />
                             </button>
                         </div>
 
@@ -105,7 +105,7 @@ export default function LabelManager({ show, labels, onClose }) {
                                         ) : (
                                             <>
                                                 <span className="font-bold text-slate-600 ml-2">#{label.name}</span>
-                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                                <div className="flex items-center gap-1 opacity-40 group-hover:opacity-100 transition-all">
                                                     <button className="w-8 h-8 rounded-lg text-slate-400 hover:text-emerald-800 hover:bg-white transition-all border-0 bg-transparent" onClick={() => { setEditingLabel(label.id); setEditName(label.name); }}>
                                                         <Edit3 size={16} />
                                                     </button>
