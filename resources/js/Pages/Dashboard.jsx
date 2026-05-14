@@ -37,6 +37,8 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
     const [isSaving, setIsSaving] = useState(false);
     const savingCount = useRef(0);
     const lastSavedContent = useRef({ title: '', content: '' });
+    const noteChannelsRef = useRef({});
+    const [echoReady, setEchoReady] = useState(!!window.Echo);
     
     const [showPasswordSettings, setShowPasswordSettings] = useState(false);
     const [passwordForm, setPasswordForm] = useState({ password: '', password_confirmation: '', current_password: '' });
@@ -108,7 +110,55 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
         }
     }, [debouncedNoteForm]);
 
-    // REAL-TIME COLLABORATION: Lắng nghe thay đổi từ người được chia sẻ ghi chú
+    // Detect khi window.Echo được khởi tạo xong (async)
+    useEffect(() => {
+        if (window.Echo) { setEchoReady(true); return; }
+        const timer = setInterval(() => {
+            if (window.Echo) { setEchoReady(true); clearInterval(timer); }
+        }, 300);
+        return () => clearInterval(timer);
+    }, []);
+
+    // REAL-TIME (GLOBAL): Cập nhật card notes trong danh sách ngay kể cả khi chưa mở ghi chú
+    useEffect(() => {
+        if (!echoReady || !window.Echo) return;
+        const subscribed = noteChannelsRef.current;
+        const activeIds = new Set();
+
+        notes.forEach(note => {
+            const id = String(note.server_id || note.id);
+            if (id.startsWith('temp_')) return;
+            activeIds.add(id);
+            if (subscribed[id]) return; // đã subscribe rồi
+
+            const ch = window.Echo.private(`note.${id}`);
+            const handler = (e) => {
+                if (e.userId === auth?.user?.id) return;
+                setNotes(prev => prev.map(n =>
+                    (String(n.id) === String(e.noteId) || String(n.server_id) === String(e.noteId))
+                        ? { ...n, title: e.title, content: e.content, images: e.images ?? n.images, labels: e.labels ?? n.labels }
+                        : n
+                ));
+            };
+            ch.listen('.note.updated', handler);
+            subscribed[id] = { ch, handler };
+        });
+
+        // Hủy subscribe các note không còn trong danh sách
+        Object.keys(subscribed).forEach(id => {
+            if (!activeIds.has(id)) {
+                subscribed[id].ch.stopListening('.note.updated');
+                delete subscribed[id];
+            }
+        });
+
+        return () => {
+            Object.values(noteChannelsRef.current).forEach(({ ch }) => ch?.stopListening('.note.updated'));
+            noteChannelsRef.current = {};
+        };
+    }, [notes.map(n => String(n.server_id || n.id)).join(','), echoReady]);
+
+    // REAL-TIME (MODAL): Cập nhật form và selectedNote khi ghi chú đang được mở
     useEffect(() => {
         if (!showModal || !selectedNote) return;
 
@@ -119,7 +169,6 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
         if (!channel) return;
 
         channel.listen('.note.updated', (e) => {
-            // Chỉ xử lý nếu thay đổi đến từ người dùng khác (không phải chính mình)
             if (e.userId === auth?.user?.id) return;
 
             // Cập nhật "nội dung đã xác nhận" để tránh auto-save ghi đè
@@ -128,17 +177,8 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
             // Cập nhật form ngay lập tức kể cả khi đang focus
             setNoteForm(prev => ({ ...prev, title: e.title ?? prev.title, content: e.content ?? prev.content }));
 
-            // Cập nhật danh sách notes và selectedNote
-            const updatedData = {
-                title: e.title,
-                content: e.content,
-                images: e.images ?? [],
-                labels: e.labels ?? [],
-            };
-
-            setNotes(prev => prev.map(n =>
-                (n.id === e.noteId || n.server_id === e.noteId) ? { ...n, ...updatedData } : n
-            ));
+            // Cập nhật selectedNote (setNotes đã được global listener xử lý)
+            const updatedData = { title: e.title, content: e.content, images: e.images ?? [], labels: e.labels ?? [] };
             setSelectedNote(prev =>
                 prev && (prev.id === e.noteId || prev.server_id === e.noteId)
                     ? { ...prev, ...updatedData }
@@ -487,7 +527,7 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                                 exit={{ opacity: 0, scale: 0.9 }}
                                 transition={{ duration: 0.3 }}
                                 onClick={() => openNote(note)}
-                                className={`group relative glass-card-note rounded-[2rem] p-6 cursor-pointer border border-white/40 transition-all hover:-translate-y-2 hover:shadow-2xl hover:shadow-emerald-900/10 ${note.is_pinned ? 'ring-2 ring-emerald-800/20' : ''}`}
+                                className={`group relative glass-card-note rounded-[2rem] p-6 cursor-pointer transition-all hover:-translate-y-2 hover:shadow-2xl hover:shadow-emerald-900/10 ${note.is_pinned ? 'ring-2 ring-emerald-800/20' : ''}`}
                             >
                                 <div className="flex flex-column h-full">
                                     <div className="flex items-start justify-between mb-4">
@@ -558,12 +598,17 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                             <div className="px-8 py-6 flex items-center justify-between border-b border-slate-100">
                                 <div className="flex items-center gap-3">
                                     <button 
-                                        className={`px-5 py-2 rounded-2xl text-sm font-bold transition-all border-0 flex items-center gap-2 ${selectedNote.is_pinned ? 'bg-emerald-800 text-white shadow-lg' : 'bg-slate-100 text-slate-500'}`} 
+                                        className={`px-5 py-2 rounded-2xl text-sm font-bold transition-all border-0 flex items-center gap-2 ${selectedNote.is_pinned ? 'bg-emerald-800 text-white shadow-lg' : ''}`}
+                                        style={!selectedNote.is_pinned ? { backgroundColor: 'var(--bg-button-muted)', color: 'var(--text-main)' } : {}}
                                         onClick={() => togglePin(selectedNote)}
                                     >
                                         <Pin size={16} fill={selectedNote.is_pinned ? "currentColor" : "none"} /> {selectedNote.is_pinned ? 'Đã ghim' : 'Ghim'}
                                     </button>
-                                    <button className="px-5 py-2 rounded-2xl bg-blue-50 text-blue-700 text-sm font-bold border-0 flex items-center gap-2 hover:bg-blue-100 transition-all" onClick={() => setShowShareModal(true)}>
+                                    <button 
+                                        className="px-5 py-2 rounded-2xl text-sm font-bold border-0 flex items-center gap-2 transition-all" 
+                                        style={{ backgroundColor: 'var(--bg-button-muted)', color: 'var(--text-main)' }}
+                                        onClick={() => setShowShareModal(true)}
+                                    >
                                         <Share2 size={16} /> Chia sẻ
                                     </button>
                                     <div className="hidden sm:flex items-center gap-2 ml-4">
@@ -588,14 +633,14 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                                     <div className="lg:col-span-8 space-y-8">
                                         <input 
                                             type="text" 
-                                            className="w-full font-extrabold border-0 bg-transparent p-0 focus:ring-0 placeholder:text-slate-300 tracking-tight" 
+                                            className="w-full font-extrabold border-0 bg-transparent p-0 focus:ring-0 placeholder:text-black placeholder:opacity-40 tracking-tight" 
                                             style={{ color: 'var(--note-text-color)', fontSize: 'var(--note-fs-modal-title)' }}
                                             placeholder="Tiêu đề..." 
                                             value={noteForm.title} 
                                             onChange={(e) => setNoteForm({ ...noteForm, title: e.target.value })} 
                                         />
                                         <textarea 
-                                            className="w-full font-medium border-0 bg-transparent p-0 focus:ring-0 placeholder:text-slate-300 resize-none leading-relaxed min-h-[400px]" 
+                                            className="w-full font-medium border-0 bg-transparent p-0 focus:ring-0 placeholder:text-black placeholder:opacity-40 resize-none leading-relaxed min-h-[400px]" 
                                             style={{ color: 'var(--note-text-color)', fontSize: 'var(--note-fs-modal-content)' }}
                                             placeholder="Bắt đầu ghi chú tại đây..." 
                                             value={noteForm.content} 
@@ -606,17 +651,17 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                                     <div className="lg:col-span-4 space-y-8 h-full flex flex-col">
 
                                         {selectedNote.user_id === auth.user.id && (
-                                            <div className="space-y-4 bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100">
-                                                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2 uppercase tracking-widest" onClick={() => setShowPasswordSettings(!showPasswordSettings)} style={{ cursor: 'pointer' }}>
+                                            <div className="space-y-4 p-6 rounded-[2rem] border transition-colors" style={{ backgroundColor: 'var(--bg-button-muted)', borderColor: 'var(--border-color)' }}>
+                                                <h4 className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest" onClick={() => setShowPasswordSettings(!showPasswordSettings)} style={{ cursor: 'pointer', color: 'var(--text-main)' }}>
                                                     <Shield size={16} className="text-emerald-700" /> Bảo mật
                                                 </h4>
                                                 {showPasswordSettings && (
                                                     <form onSubmit={handlePasswordChange} className="space-y-3">
                                                         {selectedNote.has_password && (
-                                                            <input type="password" placeholder="Mật khẩu hiện tại" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-700/10" value={passwordForm.current_password} onChange={(e) => setPasswordForm({...passwordForm, current_password: e.target.value})} required />
+                                                            <input type="password" placeholder="Mật khẩu hiện tại" className="w-full px-4 py-3 border rounded-xl text-sm focus:ring-2 focus:ring-emerald-700/10 transition-colors" style={{ backgroundColor: 'var(--bg-input-gray)', color: 'var(--text-main)', borderColor: 'var(--border-color)' }} value={passwordForm.current_password} onChange={(e) => setPasswordForm({...passwordForm, current_password: e.target.value})} required />
                                                         )}
-                                                        <input type="password" placeholder="Mật khẩu mới" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-700/10" value={passwordForm.password} onChange={(e) => setPasswordForm({...passwordForm, password: e.target.value})} required />
-                                                        <input type="password" placeholder="Xác nhận lại" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-700/10" value={passwordForm.password_confirmation} onChange={(e) => setPasswordForm({...passwordForm, password_confirmation: e.target.value})} required />
+                                                        <input type="password" placeholder="Mật khẩu mới" className="w-full px-4 py-3 border rounded-xl text-sm focus:ring-2 focus:ring-emerald-700/10 transition-colors" style={{ backgroundColor: 'var(--bg-input-gray)', color: 'var(--text-main)', borderColor: 'var(--border-color)' }} value={passwordForm.password} onChange={(e) => setPasswordForm({...passwordForm, password: e.target.value})} required />
+                                                        <input type="password" placeholder="Xác nhận lại" className="w-full px-4 py-3 border rounded-xl text-sm focus:ring-2 focus:ring-emerald-700/10 transition-colors" style={{ backgroundColor: 'var(--bg-input-gray)', color: 'var(--text-main)', borderColor: 'var(--border-color)' }} value={passwordForm.password_confirmation} onChange={(e) => setPasswordForm({...passwordForm, password_confirmation: e.target.value})} required />
                                                         <div className="flex gap-2 pt-2">
                                                             <button type="submit" className="flex-1 py-2 bg-emerald-800 text-white rounded-xl font-bold text-xs border-0">Lưu</button>
                                                             {selectedNote.has_password && (
@@ -632,12 +677,12 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                                         )}
 
                                         <div className="space-y-4">
-                                            <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2 uppercase tracking-widest">
+                                            <h4 className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest" style={{ color: 'var(--text-main)' }}>
                                                 <Tag size={16} className="text-emerald-700" /> Nhãn dán
                                             </h4>
                                             <form onSubmit={handleQuickAddLabel} className="relative group">
-                                                <input type="text" className="w-full pl-4 pr-12 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-700/10" placeholder="Thêm nhãn nhanh..." value={quickLabelName} onChange={(e) => setQuickLabelName(e.target.value)} />
-                                                <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center hover:bg-emerald-800 hover:text-white transition-all border-0"><Plus size={16} /></button>
+                                                <input type="text" className="w-full pl-4 pr-12 py-3 border rounded-xl text-sm focus:ring-2 focus:ring-emerald-700/10 transition-colors" style={{ backgroundColor: 'var(--bg-input-gray)', color: 'var(--text-main)', borderColor: 'var(--border-color)' }} placeholder="Thêm nhãn nhanh..." value={quickLabelName} onChange={(e) => setQuickLabelName(e.target.value)} />
+                                                <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg bg-slate-100/10 text-slate-400 flex items-center justify-center hover:bg-emerald-800 hover:text-white transition-all border-0"><Plus size={16} /></button>
                                             </form>
                                             <div className="flex flex-wrap gap-2">
                                                 {allLabels.map(label => {
@@ -650,7 +695,7 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                                         </div>
 
                                         <div className="space-y-4">
-                                            <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2 uppercase tracking-widest">
+                                            <h4 className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest" style={{ color: 'var(--text-main)' }}>
                                                 <Grid size={16} className="text-emerald-700" /> Hình ảnh
                                             </h4>
                                             <div className="grid grid-cols-3 gap-3">
@@ -711,16 +756,27 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
 
             <style dangerouslySetInnerHTML={{ __html: `
                 .glass-card-note {
-                    background: color-mix(in srgb, var(--note-primary-color) calc(var(--note-bg-alpha) * 100%), white);
+                    background: var(--note-card-bg) !important;
                     backdrop-filter: blur(20px) saturate(180%);
                     -webkit-backdrop-filter: blur(20px) saturate(180%);
-                    border: 1px solid color-mix(in srgb, var(--note-primary-color) 20%, white);
+                    border: 1px solid var(--note-card-border) !important;
                 }
 
                 .modal-content {
-                    background: color-mix(in srgb, var(--note-primary-color) calc(var(--note-modal-tint) * 100%), white) !important;
+                    background: var(--note-card-bg) !important;
                     backdrop-filter: blur(40px) saturate(200%);
                     -webkit-backdrop-filter: blur(40px) saturate(200%);
+                    border: 1px solid var(--note-card-border) !important;
+                }
+                
+                ::placeholder {
+                    color: var(--note-placeholder-color) !important;
+                    opacity: 0.4 !important;
+                }
+                
+                input::placeholder, textarea::placeholder {
+                    color: var(--note-placeholder-color) !important;
+                    opacity: 0.4 !important;
                 }
                 
                 input:focus, textarea:focus { outline: none !important; }

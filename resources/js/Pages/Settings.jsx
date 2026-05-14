@@ -298,13 +298,28 @@ export default function Settings({ status }) {
                                                 <label className="text-[13px] font-bold ml-1 uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--text-main)', opacity: 0.7 }}>
                                                     <Sun size={14} /> Chế độ hiển thị
                                                 </label>
-                                                <div className="grid grid-cols-2 gap-4">
+                                                <div className="grid grid-cols-2 gap-6">
                                                     {['light', 'dark'].map((mode) => (
-                                                        <label key={mode} className={`relative flex items-center justify-center gap-3 p-5 rounded-[2rem] cursor-pointer transition-all border-2 ${appearanceForm.data.theme === mode ? 'border-emerald-800 bg-emerald-50 text-emerald-800' : 'border-slate-100 bg-white/50 hover:border-slate-200'}`} style={{ color: appearanceForm.data.theme === mode ? '' : 'var(--text-muted)' }}>
+                                                        <label 
+                                                            key={mode} 
+                                                            className={`relative flex flex-col items-center justify-center gap-4 p-8 rounded-[2.5rem] cursor-pointer transition-all border-2 ${appearanceForm.data.theme === mode ? 'border-emerald-700 shadow-lg shadow-emerald-900/10' : 'border-transparent hover:border-emerald-700/30'}`} 
+                                                            style={{ 
+                                                                backgroundColor: appearanceForm.data.theme === mode 
+                                                                    ? (appearanceForm.data.theme === 'dark' ? 'rgba(6, 95, 70, 0.2)' : 'rgba(6, 95, 70, 0.05)')
+                                                                    : 'var(--bg-button-muted)',
+                                                                color: appearanceForm.data.theme === mode ? 'var(--text-main)' : 'var(--text-muted)'
+                                                            }}
+                                                        >
                                                             <input type="radio" name="theme" className="sr-only" value={mode} checked={appearanceForm.data.theme === mode} onChange={(e) => appearanceForm.setData('theme', e.target.value)} />
-                                                            {mode === 'light' ? <Sun size={20} /> : <Moon size={20} />}
-                                                            <span className="font-bold">{mode === 'light' ? 'Sáng' : 'Tối'}</span>
-                                                            {appearanceForm.data.theme === mode && <CheckCircle2 size={16} className="absolute top-4 right-4" />}
+                                                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${appearanceForm.data.theme === mode ? 'bg-emerald-800 text-white' : 'bg-slate-500/10 text-slate-400'}`}>
+                                                                {mode === 'light' ? <Sun size={24} /> : <Moon size={24} />}
+                                                            </div>
+                                                            <span className="font-extrabold tracking-wide uppercase text-xs">{mode === 'light' ? 'Giao diện Sáng' : 'Giao diện Tối'}</span>
+                                                            {appearanceForm.data.theme === mode && (
+                                                                <motion.div layoutId="modeCheck" className="absolute top-4 right-4 text-emerald-600">
+                                                                    <CheckCircle2 size={20} />
+                                                                </motion.div>
+                                                            )}
                                                         </label>
                                                     ))}
                                                 </div>
@@ -316,11 +331,11 @@ export default function Settings({ status }) {
                                                     <label className="text-[13px] font-bold ml-1 uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--text-main)', opacity: 0.7 }}>
                                                         <Pipette size={14} /> Màu chữ ghi chú
                                                     </label>
-                                                    <div className="flex items-center gap-4 p-4 bg-white/50 border border-slate-100 rounded-3xl">
-                                                        <div className="w-12 h-12 rounded-xl overflow-hidden shadow-inner border border-slate-200 relative">
+                                                    <div className="flex items-center gap-4 p-3 rounded-[2rem] border transition-colors" style={{ backgroundColor: 'var(--bg-button-muted)', borderColor: 'var(--border-color)' }}>
+                                                        <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-inner border border-white/10 relative">
                                                             <input type="color" className="absolute -inset-2 w-[200%] h-[200%] cursor-pointer" value={appearanceForm.data.text_color} onChange={(e) => appearanceForm.setData('text_color', e.target.value)} />
                                                         </div>
-                                                        <span className="font-bold uppercase" style={{ color: 'var(--text-muted)' }}>{appearanceForm.data.text_color}</span>
+                                                        <span className="font-black tracking-widest text-sm" style={{ color: 'var(--text-main)' }}>{appearanceForm.data.text_color}</span>
                                                     </div>
                                                 </div>
 
@@ -331,8 +346,8 @@ export default function Settings({ status }) {
                                                     </label>
                                                     <div className="relative group">
                                                         <select 
-                                                            className="w-full px-6 py-4 bg-white/50 border border-slate-100 rounded-3xl font-bold focus:ring-4 focus:ring-emerald-700/5 transition-all shadow-sm appearance-none" 
-                                                            style={{ color: 'var(--text-main)' }}
+                                                            className="w-full px-6 py-4 rounded-[2rem] font-bold transition-all border appearance-none cursor-pointer" 
+                                                            style={{ backgroundColor: 'var(--bg-button-muted)', color: 'var(--text-main)', borderColor: 'var(--border-color)' }}
                                                             value={appearanceForm.data.color_scheme}
                                                             onChange={(e) => appearanceForm.setData('color_scheme', e.target.value)}
                                                         >
@@ -342,7 +357,7 @@ export default function Settings({ status }) {
                                                             <option value="orange">Cam</option>
                                                             <option value="purple">Tím</option>
                                                         </select>
-                                                        <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                                        <div className="absolute right-6 top-1/2 -translate-y-1/2 pointer-events-none text-emerald-700">
                                                             <Palette size={18} />
                                                         </div>
                                                     </div>
@@ -354,13 +369,12 @@ export default function Settings({ status }) {
                                                 <label className="text-[13px] font-bold ml-1 uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--text-main)', opacity: 0.7 }}>
                                                     <Type size={14} /> Kích thước phông chữ
                                                 </label>
-                                                <div className="bg-slate-100/50 p-1.5 rounded-[2rem] flex items-center gap-1">
+                                                <div className="p-1.5 rounded-[2.2rem] flex items-center gap-1 border" style={{ backgroundColor: 'var(--bg-button-muted)', borderColor: 'var(--border-color)' }}>
                                                     {['small', 'medium', 'large'].map((size) => (
                                                         <button
                                                             key={size}
                                                             type="button"
-                                                            className={`flex-1 py-3 rounded-[1.5rem] text-sm font-bold transition-all border-0 ${appearanceForm.data.font_size === size ? 'bg-white text-emerald-800 shadow-sm' : 'bg-transparent hover:opacity-80'}`}
-                                                            style={{ color: appearanceForm.data.font_size === size ? '' : 'var(--text-muted)' }}
+                                                            className={`flex-1 py-3 rounded-[1.8rem] text-sm font-extrabold transition-all border-0 ${appearanceForm.data.font_size === size ? 'bg-emerald-800 text-white shadow-md' : 'bg-transparent text-slate-400 hover:text-emerald-700'}`}
                                                             onClick={() => appearanceForm.setData('font_size', size)}
                                                         >
                                                             {size === 'small' ? 'Nhỏ' : size === 'medium' ? 'Vừa' : 'Lớn'}

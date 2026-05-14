@@ -25,6 +25,36 @@ export default function BootstrapLayout({ children }) {
         purple: '#7c3aed'
     };
 
+    // BOLDER and more saturated palettes for note cards
+    const cardBgLight = {
+        blue:   'rgba(191, 219, 254, 0.95)',  // blue-200
+        green:  'rgba(167, 243, 208, 0.95)',  // emerald-200
+        red:    'rgba(254, 202, 202, 0.95)',  // red-200
+        orange: 'rgba(255, 221, 183, 0.95)', // orange-200
+        purple: 'rgba(221, 214, 254, 0.95)', // violet-200
+    };
+    const cardBgDark = {
+        blue:   'rgba(23,  37,  84,  0.85)',  // blue-950
+        green:  'rgba(2,   44,  34,  0.85)',  // emerald-950
+        red:    'rgba(69,  10,  10,  0.85)',  // red-950
+        orange: 'rgba(67,  20,  7,   0.85)',  // orange-950
+        purple: 'rgba(46,  16,  101, 0.85)',  // violet-950
+    };
+    const cardBorderLight = {
+        blue:   'rgba(37,  99,  235, 0.45)',  // blue-600
+        green:  'rgba(5,   150, 105, 0.45)',  // emerald-600
+        red:    'rgba(220, 38,  38,  0.45)',  // red-600
+        orange: 'rgba(234, 88,  12,  0.45)',  // orange-600
+        purple: 'rgba(124, 58,  237, 0.45)',  // violet-600
+    };
+    const cardBorderDark = {
+        blue:   'rgba(96,  165, 250, 0.5)',
+        green:  'rgba(52,  211, 153, 0.5)',
+        red:    'rgba(248, 113, 113, 0.5)',
+        orange: 'rgba(251, 146, 60,  0.5)',
+        purple: 'rgba(167, 139, 250, 0.5)',
+    };
+
     useEffect(() => {
         const root = document.documentElement;
         root.setAttribute('data-bs-theme', preferences.theme || 'light');
@@ -65,7 +95,10 @@ export default function BootstrapLayout({ children }) {
             root.style.setProperty('--bg-header', 'rgba(15, 23, 42, 0.8)');
             root.style.setProperty('--border-color', '#1e293b'); // Slate-800
             root.style.setProperty('--text-main', '#f8fafc');
-            root.style.setProperty('--text-muted', '#cbd5e1'); // Slate-300 (brighter than 94a3b8)
+            root.style.setProperty('--text-muted', '#cbd5e1'); // Slate-300
+            root.style.setProperty('--bg-input-gray', '#1e293b'); // Slate-800
+            root.style.setProperty('--bg-button-muted', 'rgba(255, 255, 255, 0.08)');
+            root.style.setProperty('--placeholder-opacity', '0.6');
         } else {
             root.style.setProperty('--bg-main', '#f8fafc'); // Slate-50
             root.style.setProperty('--bg-card', '#ffffff');
@@ -73,11 +106,26 @@ export default function BootstrapLayout({ children }) {
             root.style.setProperty('--border-color', '#e2e8f0'); // Slate-200
             root.style.setProperty('--text-main', '#0f172a');
             root.style.setProperty('--text-muted', '#64748b');
+            root.style.setProperty('--bg-input-gray', '#f8fafc'); // Slate-50
+            root.style.setProperty('--bg-button-muted', '#f1f5f9'); // Slate-100
+            root.style.setProperty('--placeholder-opacity', '0.45');
         }
         
         // For Bootstrap-based SharedNotes.jsx
         root.style.setProperty('--note-bg-color', preferences.theme === 'dark' ? '#0f172a' : '#ffffff');
         root.style.setProperty('--note-primary-rgb', hexToRgb(primaryColor));
+
+        // Rich per-scheme card background & border colors
+        const scheme = preferences.color_scheme || 'green';
+        const isDark = preferences.theme === 'dark';
+        root.style.setProperty('--note-card-bg',
+            isDark ? (cardBgDark[scheme]     || cardBgDark.green)
+                   : (cardBgLight[scheme]    || cardBgLight.green));
+        root.style.setProperty('--note-card-border',
+            isDark ? (cardBorderDark[scheme] || cardBorderDark.green)
+                   : (cardBorderLight[scheme]|| cardBorderLight.green));
+        root.style.setProperty('--note-placeholder-color', isDark ? 'white' : 'black');
+        root.style.setProperty('--note-placeholder-opacity', isDark ? '0.6' : '0.45');
     }, [preferences]);
 
     function hexToRgb(hex) {
@@ -229,10 +277,10 @@ export default function BootstrapLayout({ children }) {
                 </motion.main>
             </AnimatePresence>
 
-            {/* Minimalist Footer */}
-            <footer className="relative z-10 py-10 text-center">
-                <p className="text-sm font-medium text-slate-400">
-                    &copy; 2026 <span className="text-slate-600 font-bold">notepro</span>. Designed by Nguyen Manh Thang
+            {/* Fixed Footer Frame */}
+            <footer className="fixed bottom-0 left-0 w-full z-[100] py-4 text-center transition-colors duration-500 border-t glass-header" style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-header)' }}>
+                <p className="text-[10px] md:text-xs font-bold tracking-[0.2em] uppercase m-0" style={{ color: 'var(--text-muted)' }}>
+                    &copy; 2026 <span className="font-black" style={{ color: 'var(--note-primary-color)' }}>NotePro</span>. Designed by <span style={{ color: 'var(--text-main)' }}>Nguyen Manh Thang</span>
                 </p>
             </footer>
 
@@ -258,9 +306,27 @@ export default function BootstrapLayout({ children }) {
 
                 /* Premium Card Effect */
                 .glass-card-note {
-                    background: var(--bg-card);
-                    border: 1px solid var(--border-color);
-                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    background: var(--note-card-bg) !important;
+                    backdrop-filter: blur(20px) saturate(180%);
+                    -webkit-backdrop-filter: blur(20px) saturate(180%);
+                    border: 1px solid var(--note-card-border) !important;
+                }
+
+                .modal-content {
+                    background: var(--note-card-bg) !important;
+                    backdrop-filter: blur(40px) saturate(200%);
+                    -webkit-backdrop-filter: blur(40px) saturate(200%);
+                    border: 1px solid var(--note-card-border) !important;
+                }
+                
+                ::placeholder {
+                    color: var(--note-placeholder-color) !important;
+                    opacity: var(--note-placeholder-opacity) !important;
+                }
+                
+                input::placeholder, textarea::placeholder {
+                    color: var(--note-placeholder-color) !important;
+                    opacity: var(--note-placeholder-opacity) !important;
                 }
 
                 [data-bs-theme="dark"] body {

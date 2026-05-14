@@ -33,6 +33,8 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
     // Quản lý đồng bộ nâng cao để tránh vòng lặp (loop sync)
     const lastSavedContent = useRef({ title: '', content: '' });
     const savingCount = useRef(0);
+    const noteChannelsRef = useRef({});
+    const [echoReady, setEchoReady] = useState(!!window.Echo);
 
     // Sync initial notes and labels from props
     useEffect(() => {
@@ -74,7 +76,55 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
         }
     }, [debouncedNoteForm]);
 
-    // REAL-TIME COLLABORATION (Laravel Echo)
+    // Detect khi window.Echo được khởi tạo xong (async)
+    useEffect(() => {
+        if (window.Echo) { setEchoReady(true); return; }
+        const timer = setInterval(() => {
+            if (window.Echo) { setEchoReady(true); clearInterval(timer); }
+        }, 300);
+        return () => clearInterval(timer);
+    }, []);
+
+    // REAL-TIME (GLOBAL): Cập nhật card notes trong danh sách ngay kể cả khi chưa mở ghi chú
+    useEffect(() => {
+        if (!echoReady || !window.Echo) return;
+        const subscribed = noteChannelsRef.current;
+        const activeIds = new Set();
+
+        notes.forEach(note => {
+            const id = String(note.id);
+            activeIds.add(id);
+            if (subscribed[id]) return;
+
+            const ch = window.Echo.private(`note.${id}`);
+            const handler = (e) => {
+                // Cập nhật cho mọi thay đổi từ người khác (cả chủ ghi chú lẫn collaborator khác)
+                if (String(e.userId) === String(auth?.user?.id)) return;
+                setNotes(prev => prev.map(n =>
+                    String(n.id) === String(e.noteId)
+                        ? { ...n, title: e.title, content: e.content, images: e.images ?? n.images, labels: e.labels ?? n.labels }
+                        : n
+                ));
+            };
+            ch.listen('.note.updated', handler);
+            subscribed[id] = { ch, handler };
+        });
+
+        // Hủy subscribe các note không còn trong danh sách
+        Object.keys(subscribed).forEach(id => {
+            if (!activeIds.has(id)) {
+                subscribed[id].ch.stopListening('.note.updated');
+                delete subscribed[id];
+            }
+        });
+
+        return () => {
+            Object.values(noteChannelsRef.current).forEach(({ ch }) => ch?.stopListening('.note.updated'));
+            noteChannelsRef.current = {};
+        };
+    }, [notes.map(n => String(n.id)).join(','), echoReady]);
+
+    // REAL-TIME (MODAL): Cập nhật form và selectedNote khi ghi chú đang được mở
     useEffect(() => {
         if (showModal && selectedNote) {
             const channel = window.Echo?.private(`note.${selectedNote.id}`);
@@ -87,15 +137,13 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
                         // Cập nhật form ngay lập tức kể cả khi đang focus
                         setNoteForm(prev => ({ ...prev, title: e.title, content: e.content }));
 
-                        // Cập nhật state ngầm
+                        // Cập nhật selectedNote (setNotes đã được global listener xử lý)
                         const updatedData = { 
                             title: e.title, 
                             content: e.content, 
                             images: e.images, 
                             labels: (e.labels || []).filter(l => l.user_id === auth.user.id) 
                         };
-
-                        setNotes(prev => prev.map(n => n.id === e.noteId ? { ...n, ...updatedData } : n));
                         setSelectedNote(prev => prev && prev.id === e.noteId ? { ...prev, ...updatedData } : prev);
                         
                         // Cập nhật danh sách nhãn có sẵn nếu có nhãn mới xuất hiện
@@ -543,18 +591,19 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
 
             <style dangerouslySetInnerHTML={{ __html: `
                 .note-card { 
-                    background-color: color-mix(in srgb, var(--note-primary-color) calc(var(--note-bg-alpha) * 100%), var(--note-bg-color)) !important; 
+                    background-color: var(--note-card-bg) !important; 
                     color: var(--note-text-color); 
                     cursor: pointer; 
-                    border-color: rgba(var(--note-primary-rgb), 0.2); 
+                    border-color: var(--note-card-border) !important; 
                     backdrop-filter: blur(20px); 
                     -webkit-backdrop-filter: blur(20px); 
                 }
                 .fw-black { font-weight: 900 !important; }
                 .note-card:hover { transform: translateY(-5px); box-shadow: 0 1rem 3rem rgba(var(--note-primary-rgb), 0.1) !important; border-color: var(--note-primary-color); }
                 .placeholder-white { color: var(--note-text-color) !important; }
-                .placeholder-white::placeholder { color: var(--note-text-color) !important; opacity: 0.5; }
-                .placeholder-dark::placeholder { color: #333 !important; opacity: 0.4; }
+                .placeholder-white::placeholder { color: var(--note-placeholder-color) !important; opacity: 0.4; }
+                .placeholder-dark::placeholder { color: var(--note-placeholder-color) !important; opacity: 0.4; }
+                ::placeholder { color: var(--note-placeholder-color) !important; opacity: 0.4; }
                 .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
                 .border-dashed { border-style: dashed !important; }
                 .image-manage-group:hover .image-manage-actions { opacity: 1 !important; }
