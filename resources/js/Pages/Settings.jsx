@@ -288,19 +288,19 @@ export default function Settings({ status }) {
                                 {activeTab === 'appearance' && (
                                     <div className="space-y-10">
                                         <div>
-                                            <h3 className="text-2xl font-extrabold text-slate-900 mb-2">Giao diện</h3>
-                                            <p className="text-slate-500 font-medium">Cá nhân hóa không gian ghi chú của bạn.</p>
+                                            <h3 className="text-2xl font-extrabold mb-2">Giao diện</h3>
+                                            <p className="font-medium">Cá nhân hóa không gian ghi chú của bạn.</p>
                                         </div>
 
                                         <form onSubmit={updateAppearance} className="space-y-10">
                                             {/* Mode Selector */}
                                             <div className="space-y-4">
-                                                <label className="text-[13px] font-bold text-slate-700 ml-1 uppercase tracking-wider opacity-60 flex items-center gap-2">
+                                                <label className="text-[13px] font-bold ml-1 uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--text-main)', opacity: 0.7 }}>
                                                     <Sun size={14} /> Chế độ hiển thị
                                                 </label>
                                                 <div className="grid grid-cols-2 gap-4">
                                                     {['light', 'dark'].map((mode) => (
-                                                        <label key={mode} className={`relative flex items-center justify-center gap-3 p-5 rounded-[2rem] cursor-pointer transition-all border-2 ${appearanceForm.data.theme === mode ? 'border-emerald-800 bg-emerald-50 text-emerald-800' : 'border-slate-100 bg-white/50 text-slate-400 hover:border-slate-200'}`}>
+                                                        <label key={mode} className={`relative flex items-center justify-center gap-3 p-5 rounded-[2rem] cursor-pointer transition-all border-2 ${appearanceForm.data.theme === mode ? 'border-emerald-800 bg-emerald-50 text-emerald-800' : 'border-slate-100 bg-white/50 hover:border-slate-200'}`} style={{ color: appearanceForm.data.theme === mode ? '' : 'var(--text-muted)' }}>
                                                             <input type="radio" name="theme" className="sr-only" value={mode} checked={appearanceForm.data.theme === mode} onChange={(e) => appearanceForm.setData('theme', e.target.value)} />
                                                             {mode === 'light' ? <Sun size={20} /> : <Moon size={20} />}
                                                             <span className="font-bold">{mode === 'light' ? 'Sáng' : 'Tối'}</span>
@@ -313,25 +313,26 @@ export default function Settings({ status }) {
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                                                 {/* Text Color */}
                                                 <div className="space-y-4">
-                                                    <label className="text-[13px] font-bold text-slate-700 ml-1 uppercase tracking-wider opacity-60 flex items-center gap-2">
+                                                    <label className="text-[13px] font-bold ml-1 uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--text-main)', opacity: 0.7 }}>
                                                         <Pipette size={14} /> Màu chữ ghi chú
                                                     </label>
                                                     <div className="flex items-center gap-4 p-4 bg-white/50 border border-slate-100 rounded-3xl">
                                                         <div className="w-12 h-12 rounded-xl overflow-hidden shadow-inner border border-slate-200 relative">
                                                             <input type="color" className="absolute -inset-2 w-[200%] h-[200%] cursor-pointer" value={appearanceForm.data.text_color} onChange={(e) => appearanceForm.setData('text_color', e.target.value)} />
                                                         </div>
-                                                        <span className="font-bold text-slate-600 uppercase">{appearanceForm.data.text_color}</span>
+                                                        <span className="font-bold uppercase" style={{ color: 'var(--text-muted)' }}>{appearanceForm.data.text_color}</span>
                                                     </div>
                                                 </div>
 
                                                 {/* Color Scheme */}
                                                 <div className="space-y-4">
-                                                    <label className="text-[13px] font-bold text-slate-700 ml-1 uppercase tracking-wider opacity-60 flex items-center gap-2">
+                                                    <label className="text-[13px] font-bold ml-1 uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--text-main)', opacity: 0.7 }}>
                                                         <Palette size={14} /> Màu ghi chú
                                                     </label>
                                                     <div className="relative group">
                                                         <select 
-                                                            className="w-full px-6 py-4 bg-white/50 border border-slate-100 rounded-3xl text-slate-900 font-bold focus:ring-4 focus:ring-emerald-700/5 transition-all shadow-sm appearance-none" 
+                                                            className="w-full px-6 py-4 bg-white/50 border border-slate-100 rounded-3xl font-bold focus:ring-4 focus:ring-emerald-700/5 transition-all shadow-sm appearance-none" 
+                                                            style={{ color: 'var(--text-main)' }}
                                                             value={appearanceForm.data.color_scheme}
                                                             onChange={(e) => appearanceForm.setData('color_scheme', e.target.value)}
                                                         >
@@ -350,7 +351,7 @@ export default function Settings({ status }) {
 
                                             {/* Font Size */}
                                             <div className="space-y-4">
-                                                <label className="text-[13px] font-bold text-slate-700 ml-1 uppercase tracking-wider opacity-60 flex items-center gap-2">
+                                                <label className="text-[13px] font-bold ml-1 uppercase tracking-wider flex items-center gap-2" style={{ color: 'var(--text-main)', opacity: 0.7 }}>
                                                     <Type size={14} /> Kích thước phông chữ
                                                 </label>
                                                 <div className="bg-slate-100/50 p-1.5 rounded-[2rem] flex items-center gap-1">
@@ -358,7 +359,8 @@ export default function Settings({ status }) {
                                                         <button
                                                             key={size}
                                                             type="button"
-                                                            className={`flex-1 py-3 rounded-[1.5rem] text-sm font-bold transition-all border-0 ${appearanceForm.data.font_size === size ? 'bg-white text-emerald-800 shadow-sm' : 'bg-transparent text-slate-400 hover:text-slate-600'}`}
+                                                            className={`flex-1 py-3 rounded-[1.5rem] text-sm font-bold transition-all border-0 ${appearanceForm.data.font_size === size ? 'bg-white text-emerald-800 shadow-sm' : 'bg-transparent hover:opacity-80'}`}
+                                                            style={{ color: appearanceForm.data.font_size === size ? '' : 'var(--text-muted)' }}
                                                             onClick={() => appearanceForm.setData('font_size', size)}
                                                         >
                                                             {size === 'small' ? 'Nhỏ' : size === 'medium' ? 'Vừa' : 'Lớn'}

@@ -614,17 +614,27 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                                             </h4>
                                             <div className="grid grid-cols-3 gap-3">
                                                 {selectedNote.images.map(img => (
-                                                    <div key={img.id} className="relative group aspect-square rounded-2xl overflow-hidden border border-slate-100">
-                                                        <img src={`/storage/${img.path}`} className="w-full h-full object-cover cursor-zoom-in" onClick={() => setPreviewImage(`/storage/${img.path}`)} />
-                                                        <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2">
-                                                            <button className="w-8 h-8 rounded-lg bg-rose-500 text-white flex items-center justify-center border-0" onClick={() => handleDeleteImage(img.id)}><Trash2 size={14} /></button>
-                                                            <label className="w-8 h-8 rounded-lg bg-white text-slate-900 flex items-center justify-center cursor-pointer border-0"><Share2 size={14} /><input type="file" className="hidden" onChange={(e) => handleImageUpload(e, img.id)} /></label>
+                                                    <div key={img.id} className="flex flex-col gap-1">
+                                                        <div className="relative aspect-square rounded-2xl overflow-hidden border border-slate-100 cursor-zoom-in" onClick={() => setPreviewImage(`/storage/${img.path}`)}>
+                                                            <img src={`/storage/${img.path}`} className="w-full h-full object-cover" alt="note" />
+                                                        </div>
+                                                        <div className="flex gap-1">
+                                                            <button
+                                                                className="flex-1 flex items-center justify-center gap-1 py-1 rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-100 transition-all border-0 text-[11px] font-bold"
+                                                                onClick={() => handleDeleteImage(img.id)}
+                                                            >
+                                                                <Trash2 size={12} /> Xóa
+                                                            </button>
+                                                            <label className="flex-1 flex items-center justify-center gap-1 py-1 rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 transition-all border-0 text-[11px] font-bold cursor-pointer">
+                                                                <MoreVertical size={12} /> Sửa
+                                                                <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, img.id)} />
+                                                            </label>
                                                         </div>
                                                     </div>
                                                 ))}
                                                 <label className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-300 hover:border-emerald-700/50 hover:text-emerald-700 transition-all cursor-pointer">
                                                     <Plus size={24} />
-                                                    <input type="file" className="hidden" onChange={(e) => handleImageUpload(e)} />
+                                                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e)} />
                                                 </label>
                                             </div>
                                         </div>
@@ -651,7 +661,7 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
             {/* Image Preview Lightbox */}
             <AnimatePresence>
                 {previewImage && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[200] bg-slate-900/90 backdrop-blur-xl flex items-center justify-center p-6" onClick={() => setPreviewImage(null)}>
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[2000] bg-slate-900/90 backdrop-blur-xl flex items-center justify-center p-6" onClick={() => setPreviewImage(null)}>
                         <motion.img initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }} src={previewImage} className="max-w-full max-h-full rounded-3xl shadow-3xl" />
                         <button className="absolute top-10 right-10 w-12 h-12 rounded-2xl bg-white/10 text-white hover:bg-white hover:text-slate-900 transition-all border-0 flex items-center justify-center"><X size={24} /></button>
                     </motion.div>

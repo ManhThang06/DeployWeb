@@ -65,7 +65,7 @@ export default function BootstrapLayout({ children }) {
             root.style.setProperty('--bg-header', 'rgba(15, 23, 42, 0.8)');
             root.style.setProperty('--border-color', '#1e293b'); // Slate-800
             root.style.setProperty('--text-main', '#f8fafc');
-            root.style.setProperty('--text-muted', '#94a3b8');
+            root.style.setProperty('--text-muted', '#cbd5e1'); // Slate-300 (brighter than 94a3b8)
         } else {
             root.style.setProperty('--bg-main', '#f8fafc'); // Slate-50
             root.style.setProperty('--bg-card', '#ffffff');
@@ -232,7 +232,7 @@ export default function BootstrapLayout({ children }) {
             {/* Minimalist Footer */}
             <footer className="relative z-10 py-10 text-center">
                 <p className="text-sm font-medium text-slate-400">
-                    &copy; 2024 <span className="text-slate-600 font-bold">NotePro</span>. Designed for productivity.
+                    &copy; 2026 <span className="text-slate-600 font-bold">notepro</span>. Designed by Nguyen Manh Thang
                 </p>
             </footer>
 
