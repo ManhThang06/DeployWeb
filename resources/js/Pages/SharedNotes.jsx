@@ -84,17 +84,8 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
                         // Cập nhật 'nội dung đã xác nhận' từ server để useEffect không coi đây là thay đổi cục bộ
                         lastSavedContent.current = { title: e.title, content: e.content };
 
-                        // Chỉ cập nhật form cho những trường mà người dùng KHÔNG đang focus
-                        const activeElement = document.activeElement;
-                        const isTitleFocused = activeElement?.getAttribute('placeholder') === 'Tiêu đề';
-                        const isContentFocused = activeElement?.getAttribute('placeholder') === 'Nội dung...';
-
-                        setNoteForm(prev => {
-                            const next = { ...prev };
-                            if (!isTitleFocused) next.title = e.title;
-                            if (!isContentFocused) next.content = e.content;
-                            return next;
-                        });
+                        // Cập nhật form ngay lập tức kể cả khi đang focus
+                        setNoteForm(prev => ({ ...prev, title: e.title, content: e.content }));
 
                         // Cập nhật state ngầm
                         const updatedData = { 

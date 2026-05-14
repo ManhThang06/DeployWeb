@@ -108,6 +108,47 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
         }
     }, [debouncedNoteForm]);
 
+    // REAL-TIME COLLABORATION: Lắng nghe thay đổi từ người được chia sẻ ghi chú
+    useEffect(() => {
+        if (!showModal || !selectedNote) return;
+
+        const noteId = selectedNote.server_id || selectedNote.id;
+        if (!noteId || String(noteId).startsWith('temp_')) return;
+
+        const channel = window.Echo?.private(`note.${noteId}`);
+        if (!channel) return;
+
+        channel.listen('.note.updated', (e) => {
+            // Chỉ xử lý nếu thay đổi đến từ người dùng khác (không phải chính mình)
+            if (e.userId === auth?.user?.id) return;
+
+            // Cập nhật "nội dung đã xác nhận" để tránh auto-save ghi đè
+            lastSavedContent.current = { title: e.title, content: e.content };
+
+            // Cập nhật form ngay lập tức kể cả khi đang focus
+            setNoteForm(prev => ({ ...prev, title: e.title ?? prev.title, content: e.content ?? prev.content }));
+
+            // Cập nhật danh sách notes và selectedNote
+            const updatedData = {
+                title: e.title,
+                content: e.content,
+                images: e.images ?? [],
+                labels: e.labels ?? [],
+            };
+
+            setNotes(prev => prev.map(n =>
+                (n.id === e.noteId || n.server_id === e.noteId) ? { ...n, ...updatedData } : n
+            ));
+            setSelectedNote(prev =>
+                prev && (prev.id === e.noteId || prev.server_id === e.noteId)
+                    ? { ...prev, ...updatedData }
+                    : prev
+            );
+        });
+
+        return () => channel.stopListening('.note.updated');
+    }, [showModal, selectedNote?.id, selectedNote?.server_id]);
+
     const handleAutoSave = async (note, data) => {
         savingCount.current++;
         setIsSaving(true);
