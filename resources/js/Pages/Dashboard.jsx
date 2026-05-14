@@ -132,13 +132,25 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
             if (subscribed[id]) return; // đã subscribe rồi
 
             const ch = window.Echo.private(`note.${id}`);
+            // Cập nhật for Echo
             const handler = (e) => {
                 if (e.userId === auth?.user?.id) return;
+                const myLabels = (e.labels ?? []).filter(l => l.user_id === auth.user.id);
                 setNotes(prev => prev.map(n =>
                     (String(n.id) === String(e.noteId) || String(n.server_id) === String(e.noteId))
-                        ? { ...n, title: e.title, content: e.content, images: e.images ?? n.images, labels: e.labels ?? n.labels }
+                        ? { ...n, title: e.title, content: e.content, images: e.images ?? n.images, labels: myLabels }
                         : n
                 ));
+
+                // Cập nhật danh sách nhãn có sẵn
+                if (e.labels) {
+                    setAllLabels(prev => {
+                        const existingIds = new Set(prev.map(l => l.id));
+                        const toAdd = myLabels.filter(l => !existingIds.has(l.id));
+                        if (toAdd.length === 0) return prev;
+                        return [...prev, ...toAdd];
+                    });
+                }
             };
             ch.listen('.note.updated', handler);
             subscribed[id] = { ch, handler };
@@ -178,12 +190,23 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
             setNoteForm(prev => ({ ...prev, title: e.title ?? prev.title, content: e.content ?? prev.content }));
 
             // Cập nhật selectedNote (setNotes đã được global listener xử lý)
-            const updatedData = { title: e.title, content: e.content, images: e.images ?? [], labels: e.labels ?? [] };
+            const myLabels = (e.labels ?? []).filter(l => l.user_id === auth.user.id);
+            const updatedData = { title: e.title, content: e.content, images: e.images ?? [], labels: myLabels };
             setSelectedNote(prev =>
                 prev && (prev.id === e.noteId || prev.server_id === e.noteId)
                     ? { ...prev, ...updatedData }
                     : prev
             );
+
+            // Cập nhật danh sách nhãn có sẵn nếu có nhãn mới dành cho user hiện tại
+            if (e.labels) {
+                setAllLabels(prev => {
+                    const existingIds = new Set(prev.map(l => l.id));
+                    const toAdd = myLabels.filter(l => !existingIds.has(l.id));
+                    if (toAdd.length === 0) return prev;
+                    return [...prev, ...toAdd];
+                });
+            }
         });
 
         return () => channel.stopListening('.note.updated');

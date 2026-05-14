@@ -100,11 +100,22 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
             const handler = (e) => {
                 // Cập nhật cho mọi thay đổi từ người khác (cả chủ ghi chú lẫn collaborator khác)
                 if (String(e.userId) === String(auth?.user?.id)) return;
+                const myLabels = (e.labels ?? []).filter(l => l.user_id === auth.user.id);
                 setNotes(prev => prev.map(n =>
                     String(n.id) === String(e.noteId)
-                        ? { ...n, title: e.title, content: e.content, images: e.images ?? n.images, labels: e.labels ?? n.labels }
+                        ? { ...n, title: e.title, content: e.content, images: e.images ?? n.images, labels: myLabels }
                         : n
                 ));
+
+                // Cập nhật danh sách nhãn có sẵn nếu có nhãn mới dành cho user hiện tại
+                if (e.labels) {
+                    setAllLabels(prev => {
+                        const existingIds = new Set(prev.map(l => l.id));
+                        const toAdd = myLabels.filter(l => !existingIds.has(l.id));
+                        if (toAdd.length === 0) return prev;
+                        return [...prev, ...toAdd];
+                    });
+                }
             };
             ch.listen('.note.updated', handler);
             subscribed[id] = { ch, handler };
