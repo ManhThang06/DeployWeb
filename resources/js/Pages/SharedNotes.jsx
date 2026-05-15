@@ -38,23 +38,40 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
 
     // Sync initial notes and labels from props
     useEffect(() => {
-        setNotes(initialNotes);
+        setNotes(prev => {
+            // Nếu đã có data local, ta cập nhật các field từ server nhưng giữ lại các trạng thái local quan trọng
+            if (prev && prev.length > 0 && initialNotes.length > 0) {
+                return initialNotes.map(newNote => {
+                    const existingNote = prev.find(n => n.id === newNote.id);
+                    if (existingNote) {
+                        // Giữ lại is_viewed nếu local đã đánh dấu là true
+                        return { ...newNote, is_viewed: existingNote.is_viewed || newNote.is_viewed };
+                    }
+                    return newNote;
+                });
+            }
+            return initialNotes;
+        });
         setAvailableLabels(propLabels);
         setAllLabels(propAllLabels || propLabels);
         
-        // Cập nhật selectedNote ngay lập tức khi props thay đổi (sau khi upload ảnh/gán nhãn)
         if (selectedNote) {
-            const updated = initialNotes.find(n => n.id === selectedNote.id);
+            const updatedFromOpened = (openedNote && openedNote.id === selectedNote.id) ? openedNote : null;
+            const updatedFromList = initialNotes.find(n => n.id === selectedNote.id);
+            const updated = updatedFromOpened || updatedFromList;
+
             if (updated) {
                 setSelectedNote(prev => ({ 
                     ...prev, 
                     ...updated, 
-                    images: updated.images || [], 
-                    labels: updated.labels || [] 
+                    is_viewed: (prev && prev.is_viewed) || (updated && updated.is_viewed),
+                    images: updated.images || prev.images || [], 
+                    labels: updated.labels || prev.labels || [],
+                    collaborators: updated.collaborators || prev.collaborators || []
                 }));
             }
         }
-    }, [initialNotes, propLabels]);
+    }, [initialNotes, propLabels, openedNote]);
 
     // Auto-open note if requested from other pages
     useEffect(() => {
@@ -64,7 +81,7 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
     }, [openedNote?.id]);
 
     useEffect(() => {
-        if (!selectedNote || selectedNote.permission !== 'edit') return;
+        if (!selectedNote || selectedNote.permission !== 'edit' || isSaving) return;
 
         // Chỉ lưu nếu có thay đổi so với nội dung cuối cùng đã xác nhận (lưu hoặc nhận)
         const titleChanged = (debouncedNoteForm.title || '') !== lastSavedContent.current.title;
@@ -74,7 +91,7 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
         if (titleChanged || contentChanged) {
             handleAutoSave(selectedNote, debouncedNoteForm);
         }
-    }, [debouncedNoteForm]);
+    }, [debouncedNoteForm, isSaving]);
 
     // Detect khi window.Echo được khởi tạo xong (async)
     useEffect(() => {
@@ -220,18 +237,28 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
         savingCount.current++;
         setIsSaving(true);
         try {
-            // Đánh dấu nội dung này là đã được xử lý lưu
+            // Update baseline content immediately
             lastSavedContent.current = { title: data.title || '', content: data.content || '' };
             
-            const updatedNote = await saveNote(data, note.id);
+            const finalData = { ...data };
+            const hasText = data.title?.trim() || data.content?.trim();
+            
+            // Note: Shared notes usually already have a title, but if empty, add fallback
+            if (!hasText && !data.title?.trim()) {
+                finalData.title = 'Không tiêu đề';
+                lastSavedContent.current.title = 'Không tiêu đề';
+            }
+
+            const result = await saveNote(finalData, note.id);
+            const updatedNote = { ...result, images: result.images || note.images || [], labels: result.labels || note.labels || [] };
+            
             setNotes(prev => prev.map(n => n.id === note.id ? { ...n, ...updatedNote } : n));
             
-            // Nếu vừa tự điền 'Không tiêu đề', cập nhật cả form state để người dùng thấy
             if (finalData.title === 'Không tiêu đề' && data.title !== 'Không tiêu đề') {
                 setNoteForm(prev => ({ ...prev, title: 'Không tiêu đề' }));
             }
 
-            setSelectedNote(prev => ({ ...prev, ...updatedNote }));
+            setSelectedNote(prev => prev && prev.id === note.id ? { ...prev, ...updatedNote } : prev);
         } catch (error) {
             console.error('Auto-save failed', error);
         } finally {
@@ -254,6 +281,15 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
         setSelectedNote(note);
         setNoteForm({ title: note.title || '', content: note.content || '' });
         setShowModal(true);
+
+        // Đánh dấu đã xem nếu chưa xem và đang online
+        if (!note.is_viewed && window.navigator.onLine) {
+            axios.post(route('notes.mark-viewed', note.id))
+                .then(() => {
+                    setNotes(prev => prev.map(n => n.id === note.id ? { ...n, is_viewed: true } : n));
+                })
+                .catch(err => console.error("Failed to mark as viewed", err));
+        }
 
         // Update URL without full navigation
         const params = new URLSearchParams(window.location.search);
@@ -423,15 +459,20 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
                     <div className="row g-4">
                         {notes.map(note => (
                             <div key={note.id} className="col-md-6 col-lg-4">
-                                <div className="card h-100 border shadow-sm rounded-4 transition-all hover-lift note-card">
+                                <div className="card h-100 border shadow-sm rounded-4 transition-all hover-lift note-card position-relative">
                                     <div className="card-body p-4">
-                                        <div className="d-flex justify-content-between align-items-start mb-3">
-                                            <span className={`badge rounded-pill ${note.permission === 'edit' ? 'bg-success-subtle text-success' : 'bg-info-subtle text-info'} border border-opacity-10 mb-2 px-3`}>
-                                                <i className={`bi ${note.permission === 'edit' ? 'bi-pencil-square' : 'bi-eye'} me-1`}></i>
-                                                {note.permission === 'edit' ? 'Có thể chỉnh sửa' : 'Chỉ xem'}
-                                            </span>
+                                            <div className="d-flex align-items-center gap-2">
+                                                <span className={`badge rounded-pill ${note.permission === 'edit' ? 'bg-success-subtle text-success' : 'bg-info-subtle text-info'} border border-opacity-10 mb-2 px-3`}>
+                                                    <i className={`bi ${note.permission === 'edit' ? 'bi-pencil-square' : 'bi-eye'} me-1`}></i>
+                                                    {note.permission === 'edit' ? 'Có thể chỉnh sửa' : 'Chỉ xem'}
+                                                </span>
+                                                {!note.is_viewed && (
+                                                    <span className="badge rounded-pill bg-danger border border-danger border-opacity-10 mb-2 px-3 animate-pulse-ring">
+                                                        <i className="bi bi-lightning-fill me-1"></i> Mới
+                                                    </span>
+                                                )}
+                                            </div>
                                             {note.is_pinned && <i className="bi bi-pin-angle-fill text-primary"></i>}
-                                        </div>
                                         <h5 className="fw-bold mb-3" style={{ color: 'inherit', fontSize: 'var(--note-fs-card-title)' }}>{note.title || 'Không tiêu đề'}</h5>
                                         <p className="mb-4 line-clamp-3" style={{ color: 'inherit', opacity: 0.75, fontSize: 'var(--note-fs-card-content)' }}>
                                             {note.content || 'Trống...'}
@@ -521,6 +562,28 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
                                                         <div className="fw-bold">{selectedNote.owner_name}</div>
                                                         <div className="text-muted small">{selectedNote.owner_email}</div>
                                                     </div>
+                                                </div>
+                                            </section>
+
+                                            <section className="bg-light-subtle p-3 rounded-4 border">
+                                                <h6 className="fw-bold mb-3 d-flex align-items-center" style={{ color: 'var(--note-primary-color)' }}>
+                                                    <i className="bi bi-people-fill me-2"></i> Cùng chia sẻ
+                                                </h6>
+                                                <div className="d-flex flex-column gap-2">
+                                                    {(selectedNote.collaborators || []).map((collab, index) => (
+                                                        <div key={index} className="d-flex align-items-center justify-content-between small py-1 border-bottom border-opacity-10 last-child-border-0">
+                                                            <div className="d-flex flex-column">
+                                                                <span className="fw-medium">{collab.display_name}</span>
+                                                                <span className="text-muted" style={{ fontSize: '0.65rem' }}>{collab.email}</span>
+                                                            </div>
+                                                            <span className={`badge rounded-pill ${collab.permission === 'edit' ? 'bg-success-subtle text-success' : 'bg-info-subtle text-info'} px-2`} style={{ fontSize: '0.6rem' }}>
+                                                                {collab.permission === 'edit' ? 'Sửa' : 'Xem'}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                    {(!selectedNote.collaborators || selectedNote.collaborators.length === 0) && (
+                                                        <div className="text-muted small italic">Chưa có người khác</div>
+                                                    )}
                                                 </div>
                                             </section>
 
@@ -620,6 +683,15 @@ export default function SharedNotes({ notes: initialNotes, labels: propLabels, a
                 .image-manage-group:hover .image-manage-actions { opacity: 1 !important; }
                 .transition-all { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
                 .cursor-zoom-in { cursor: zoom-in; }
+                .animate-pulse-ring {
+                    animation: pulse-ring 1.25s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+                }
+                @keyframes pulse-ring {
+                    0% { transform: scale(.95); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+                    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+                    100% { transform: scale(.95); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+                }
+                .last-child-border-0:last-child { border-bottom: 0 !important; }
             `}} />
         </BootstrapLayout>
     );

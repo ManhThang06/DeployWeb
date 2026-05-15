@@ -13,7 +13,7 @@ import { confirmDestructive, confirmAction, notifyError } from '@/Utils/sweetale
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Plus, Users, Grid, List, Tag, Pin, PinOff, Trash2, Shield, Calendar, Share2, MoreVertical, X, CheckCircle2, CloudOff, Loader2 } from 'lucide-react';
 
-export default function Dashboard({ notes: initialNotes, labels, allLabels: propAllLabels, filters, auth, openedNote, errors }) {
+export default function Dashboard({ notes: initialNotes, labels, allLabels: propAllLabels, filters, auth, openedNote, errors, unread_shared_notes_count }) {
     const [notes, setNotes] = useState(initialNotes);
     const [viewMode, setViewMode] = useState('grid');
     const [search, setSearch] = useState(filters.search || '');
@@ -102,13 +102,13 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
     }, [debouncedSearch]);
 
     useEffect(() => {
-        if (!selectedNote) return;
+        if (!selectedNote || isSaving) return;
         const titleChanged = (debouncedNoteForm.title || '') !== lastSavedContent.current.title;
         const contentChanged = (debouncedNoteForm.content || '') !== lastSavedContent.current.content;
         if (titleChanged || contentChanged) {
             handleAutoSave(selectedNote, debouncedNoteForm);
         }
-    }, [debouncedNoteForm]);
+    }, [debouncedNoteForm, isSaving]);
 
     // Detect khi window.Echo được khởi tạo xong (async)
     useEffect(() => {
@@ -216,32 +216,39 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
         savingCount.current++;
         setIsSaving(true);
         try {
+            // Update baseline content immediately to prevent duplicate triggers
             lastSavedContent.current = { title: data.title || '', content: data.content || '' };
+            
             const finalData = { ...data };
             const hasText = data.title?.trim() || data.content?.trim();
             const hasImages = note.images && note.images.length > 0;
 
             if (!hasText && hasImages && !data.title?.trim()) {
                 finalData.title = 'Không tiêu đề';
+                // Update baseline again if we modified the title
+                lastSavedContent.current.title = 'Không tiêu đề';
             }
 
-            let updatedNote;
-            if (!note.server_id && String(note.id).startsWith('temp_')) {
-                if (!hasText && !hasImages) {
-                    setIsSaving(false);
-                    return; 
-                }
-                const res = await axios.post(route('notes.store'), finalData);
-                updatedNote = { ...res.data, server_id: res.data.id, sync_status: 'synced', images: note.images || [], labels: res.data.labels || [] };
-            } else {
-                const result = await saveNote(finalData, note.server_id || note.id);
-                updatedNote = { ...result, images: result.images || note.images || [], labels: result.labels || note.labels || [] };
-            }
-            setNotes(prev => prev.map(n => (n.id === note.id || n.server_id === (note.server_id || note.id)) ? { ...n, ...updatedNote } : n));
+            // Always use saveNote to handle online/offline logic uniformly
+            const result = await saveNote(finalData, note.server_id || (String(note.id).startsWith('temp_') ? null : note.id));
+            
+            const updatedNote = { 
+                ...result, 
+                images: result.images || note.images || [], 
+                labels: result.labels || note.labels || [] 
+            };
+
+            setNotes(prev => prev.map(n => 
+                (n.id === note.id || (n.server_id && n.server_id === (note.server_id || note.id))) 
+                    ? { ...n, ...updatedNote } 
+                    : n
+            ));
+
             if (finalData.title === 'Không tiêu đề' && data.title !== 'Không tiêu đề') {
                 setNoteForm(prev => ({ ...prev, title: 'Không tiêu đề' }));
             }
-            setSelectedNote(prev => ({ ...prev, ...updatedNote }));
+            
+            setSelectedNote(prev => prev ? { ...prev, ...updatedNote } : null);
         } catch (error) {
             console.error('Auto-save failed', error);
         } finally {
@@ -454,7 +461,7 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
             </AnimatePresence>
 
             {isSyncing && (
-                <div className="fixed bottom-8 right-8 z-50">
+                <div className="fixed bottom-24 right-8 z-[110]">
                     <div className="bg-emerald-800 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-3 font-bold text-sm border border-emerald-700/50">
                         <Loader2 size={18} className="animate-spin" /> Đồng bộ hóa...
                     </div>
@@ -479,8 +486,11 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                     </div>
                     
                     <div className="flex items-center gap-3 w-full md:w-auto">
-                        <Link href={route('notes.shared-with-me')} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-4 glass-card-note text-slate-500 font-bold hover:text-emerald-500 transition-all shadow-sm no-underline rounded-3xl" style={{ backgroundColor: 'var(--bg-card)' }}>
+                        <Link href={route('notes.shared-with-me')} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-4 border border-transparent font-bold transition-all no-underline rounded-3xl relative share-btn-dashboard" style={{ backgroundColor: 'transparent' }}>
                             <Users size={18} /> Chia sẻ
+                            {unread_shared_notes_count > 0 && (
+                                <span className="absolute top-3 right-3 w-3 h-3 bg-rose-500 rounded-full border-2 border-white animate-pulse"></span>
+                            )}
                         </Link>
                         <motion.button 
                             whileHover={{ scale: 1.02 }}
@@ -819,6 +829,16 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
                 
                 .shadow-3xl {
                     box-shadow: 0 35px 60px -15px rgba(0, 0, 0, 0.1);
+                }
+
+                .share-btn-dashboard {
+                    color: var(--text-muted) !important;
+                }
+                [data-bs-theme="dark"] .share-btn-dashboard {
+                    color: white !important;
+                }
+                .share-btn-dashboard:hover {
+                    color: var(--note-primary-color) !important;
                 }
             `}} />
         </BootstrapLayout>

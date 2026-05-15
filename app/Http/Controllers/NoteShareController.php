@@ -7,6 +7,8 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\NoteShared;
 use Inertia\Inertia;
 
 class NoteShareController extends Controller
@@ -46,6 +48,7 @@ class NoteShareController extends Controller
                     'owner_name' => $note->user->display_name,
                     'owner_email' => $note->user->email,
                     'permission' => $note->pivot->permission,
+                    'is_viewed' => $note->pivot->is_viewed,
                     'shared_at' => $note->pivot->created_at,
                     'is_pinned' => $note->is_pinned,
                     'labels' => $note->labels,
@@ -69,6 +72,19 @@ class NoteShareController extends Controller
                 // Gán permission cho openedNote
                 $pivot = $openedNote->sharedWith()->where('users.id', $user->id)->first()->pivot;
                 $openedNote->permission = $pivot->permission;
+                $openedNote->is_viewed = $pivot->is_viewed;
+
+                // Load all collaborators for this note
+                $openedNote->collaborators = $openedNote->sharedWith()
+                    ->select('users.id', 'users.display_name', 'users.email')
+                    ->get()
+                    ->map(function($u) {
+                        return [
+                            'email' => $u->email,
+                            'display_name' => $u->display_name,
+                            'permission' => $u->pivot->permission
+                        ];
+                    });
             }
         }
 
@@ -109,10 +125,33 @@ class NoteShareController extends Controller
         }
 
         $note->sharedWith()->syncWithoutDetaching([
-            $userToShare->id => ['permission' => $validated['permission']]
+            $userToShare->id => [
+                'permission' => $validated['permission'],
+                'is_viewed' => false // Reset is_viewed for new or updated share
+            ]
         ]);
 
+        // Gửi email thông báo
+        try {
+            Mail::to($userToShare->email)->send(new NoteShared($note, Auth::user()));
+        } catch (\Exception $e) {
+            // Log error but don't fail the request
+            \Log::error("Failed to send share email: " . $e->getMessage());
+        }
+
         return back();
+    }
+
+    /**
+     * Đánh dấu ghi chú đã được xem.
+     */
+    public function markAsViewed(Note $note)
+    {
+        $note->sharedWith()->updateExistingPivot(Auth::id(), [
+            'is_viewed' => true
+        ]);
+
+        return response()->json(['success' => true]);
     }
 
     /**

@@ -69,7 +69,8 @@ class NoteController extends Controller
             })->get(),
             'allLabels' => $user->labels()->get(),
             'filters' => $request->only(['search', 'label_ids', 'from']),
-            'openedNote' => $openedNote
+            'openedNote' => $openedNote,
+            'unread_shared_notes_count' => $user->sharedNotes()->wherePivot('is_viewed', false)->count()
         ]);
     }
 

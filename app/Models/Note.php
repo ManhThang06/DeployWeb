@@ -47,7 +47,7 @@ class Note extends Model
     public function sharedWith()
     {
         return $this->belongsToMany(User::class, 'note_user')
-                    ->withPivot('permission')
+                    ->withPivot('permission', 'is_viewed')
                     ->withTimestamps();
     }
 }

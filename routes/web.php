@@ -38,6 +38,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/notes/{note}/share/{user}', [\App\Http\Controllers\NoteShareController::class, 'updatePermission'])->name('notes.share.update');
     Route::post('/notes/{note}/verify-password', [\App\Http\Controllers\NoteShareController::class, 'verifyPassword'])->name('notes.verify-password');
     Route::post('/notes/{note}/password', [\App\Http\Controllers\NoteShareController::class, 'setPassword'])->name('notes.set-password');
+    Route::post('/notes/{note}/viewed', [\App\Http\Controllers\NoteShareController::class, 'markAsViewed'])->name('notes.mark-viewed');
 });
 
 require __DIR__.'/auth.php';
