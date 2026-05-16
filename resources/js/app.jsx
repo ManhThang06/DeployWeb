@@ -25,7 +25,7 @@ registerSW({
 });
 
 createInertiaApp({
-    title: (title) => `${title} - ${appName}`,
+    title: (title) => title,
     resolve: (name) =>
         resolvePageComponent(
             `./Pages/${name}.jsx`,
