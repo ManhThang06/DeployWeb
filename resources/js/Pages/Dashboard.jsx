@@ -452,7 +452,7 @@ export default function Dashboard({ notes: initialNotes, labels, allLabels: prop
 
             <AnimatePresence>
                 {!isOnline && (
-                    <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -20, opacity: 0 }} className="fixed top-24 left-1/2 -translate-x-1/2 z-[60]">
+                    <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -20, opacity: 0 }} className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999]">
                         <div className="bg-rose-500 text-white px-6 py-2 rounded-2xl shadow-xl flex items-center gap-2 font-bold text-sm">
                             <CloudOff size={16} /> Đang ngoại tuyến
                         </div>
