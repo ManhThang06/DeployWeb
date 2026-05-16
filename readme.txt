@@ -19,10 +19,12 @@ B1: Cài đặt thư viện PHP:
     docker-compose exec app composer install
 B2: Tạo bảng dữ liệu:
     docker-compose exec app php artisan migrate
-B3: Cài đặt thư viện JS và Build giao diện (Chạy ở máy thật):
+B3: Kết nối thư mục ảnh (Để hiện ảnh note):
+    docker-compose exec app php artisan storage:link
+B4: Cài đặt thư viện JS và Build giao diện (Chạy ở máy thật):
     npm install
     npm run build
-B4: Vào địa chỉ: http://localhost:8000
+B5: Vào địa chỉ: http://localhost:8000
 
 Tính năng được thêm vào:
 1: Duy trì đăng nhập ở trang login
