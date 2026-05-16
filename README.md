@@ -7,6 +7,20 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Cách chạy project
+
+### Cách 1: Sử dụng Script tự động (Khuyên dùng)
+- **Windows**: Chuột phải vào file `setup-project.ps1` -> chọn "Run with PowerShell".
+- **Linux/Mac**: Chạy lệnh `chmod +x setup-project.sh && ./setup-project.sh`.
+
+### Cách 2: Chạy thủ công từng bước
+1.  **Cài đặt PHP Dependencies**: `docker compose exec app composer install`
+2.  **Cài đặt JS Dependencies**: `npm install`
+3.  **Build Assets**: `npm run build`
+4.  **Chạy Migration**: `docker compose exec app php artisan migrate`
+
+Truy cập trang web tại: [http://localhost:8000](http://localhost:8000)
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
